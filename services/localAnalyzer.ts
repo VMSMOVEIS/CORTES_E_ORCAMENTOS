@@ -97,9 +97,10 @@ const HARDWARE_KEYWORDS = [
     { key: 'dobradi', cat: 'Dobradiça' },
     { key: 'hinge', cat: 'Dobradiça' },
     { key: 'corredi', cat: 'Corrediça' },
-    { key: 'trilho', cat: 'Corrediça' },
+    { key: 'trilho', cat: 'Sistema/Trilho' },
     { key: 'slide', cat: 'Corrediça' },
     { key: 'puxador', cat: 'Puxador' },
+    { key: 'puxadore', cat: 'Puxador' },
     { key: 'handle', cat: 'Puxador' },
     { key: 'knob', cat: 'Puxador' },
     { key: 'pe ', cat: 'Pé' },
@@ -117,7 +118,25 @@ const HARDWARE_KEYWORDS = [
     { key: 'articula', cat: 'Articulador' },
     { key: 'tubo', cat: 'Tubo/Cabideiro' },
     { key: 'cabideiro', cat: 'Tubo/Cabideiro' },
-    { key: 'sapatas', cat: 'Acessório' }
+    { key: 'sapata', cat: 'Acessório' },
+    { key: 'tapafuro', cat: 'Acessório' },
+    { key: 'bucha', cat: 'Ferragem' },
+    { key: 'prego', cat: 'Ferragem' },
+    { key: 'cola ', cat: 'Insumo' },
+    { key: 'verniz', cat: 'Insumo' },
+    { key: 'isopor', cat: 'Insumo' },
+    { key: 'perfil', cat: 'Perfil' },
+    { key: 'sistema porta', cat: 'Sistema' },
+    { key: 'bocal', cat: 'Elétrica' },
+    { key: 'lampada', cat: 'Elétrica' },
+    { key: 'gancho', cat: 'Acessório' },
+    { key: 'copinho', cat: 'Acessório' },
+    { key: 'pulsador', cat: 'Acessório' },
+    { key: 'basculante', cat: 'Acessório' },
+    { key: 'hardware', cat: 'Ferragem' },
+    { key: 'fixa', cat: 'Ferragem' },
+    { key: 'montante', cat: 'Perfil' },
+    { key: 'niveladora', cat: 'Acessório' }
 ];
 
 /**
@@ -125,7 +144,7 @@ const HARDWARE_KEYWORDS = [
  * Classifica peças 3D baseando-se em padrões industriais de marcenaria.
  * Agora separa Componentes (Hardware) de Painéis (MDF).
  */
-export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0): { panels: ProcessedPart[], hardware: ExtractedComponent[] } => {
+export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0, swapDimensions: boolean = false): { panels: ProcessedPart[], hardware: ExtractedComponent[] } => {
   const groupedParts = new Map<string, ProcessedPart>();
   const groupedHardware = new Map<string, ExtractedComponent>();
   
@@ -152,15 +171,33 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0)
   };
 
   rawParts.forEach((part) => {
+    // Apply global swap if requested
+    if (swapDimensions) {
+        const originalWidth = part.dimensions.width;
+        const originalHeight = part.dimensions.height;
+        part.dimensions.width = originalHeight;
+        part.dimensions.height = originalWidth;
+
+        // Swap edges too
+        const originalEdges = { ...part.edges };
+        part.edges.long1 = originalEdges.short1;
+        part.edges.long2 = originalEdges.short2;
+        part.edges.short1 = originalEdges.long1;
+        part.edges.short2 = originalEdges.long2;
+    }
+
     const rawNameLower = part.originalName.toLowerCase();
     
     // --- 1. VERIFICAR SE É FERRAGEM / COMPONENTE ---
+    // Critérios: Palavra-chave no nome OU Espessura > 30mm
     const hardwareMatch = HARDWARE_KEYWORDS.find(hw => rawNameLower.includes(hw.key));
+    const isSpecialHardware = part.dimensions.thickness > 30;
     
-    if (hardwareMatch) {
+    if (hardwareMatch || isSpecialHardware) {
         // É um componente! Agrupar separadamente.
         const cleanedName = cleanPartName(part.originalName);
-        const hwKey = `${cleanedName}|${hardwareMatch.cat}`; // Agrupa por Nome Limpo + Categoria
+        const category = hardwareMatch ? hardwareMatch.cat : 'Componente Especial';
+        const hwKey = `${cleanedName}|${category}`; // Agrupa por Nome Limpo + Categoria
         
         if (groupedHardware.has(hwKey)) {
             const existing = groupedHardware.get(hwKey)!;
@@ -170,7 +207,7 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0)
                 id: part.id,
                 name: cleanedName, // Nome limpo (ex: "Dobradiça Curva" em vez de "Dobradiça Curva #2")
                 originalName: part.originalName,
-                category: hardwareMatch.cat,
+                category: category,
                 quantity: 1,
                 sourceFile: "", // Will be set later in App.tsx
                 dimensions: `${Math.round(part.dimensions.width)}x${Math.round(part.dimensions.height)}x${Math.round(part.dimensions.thickness)}`

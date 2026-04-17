@@ -4,13 +4,14 @@ import { DropZone } from './DropZone';
 import { X, Type, FileUp, Check } from 'lucide-react';
 
 interface FileImportModalProps {
-  onConfirm: (file: File, name: string) => void;
+  onConfirm: (file: File, name: string, swapDimensions?: boolean) => void;
   onCancel: () => void;
 }
 
 export const FileImportModal: React.FC<FileImportModalProps> = ({ onConfirm, onCancel }) => {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState('');
+  const [swapDimensions, setSwapDimensions] = useState(false);
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
@@ -22,7 +23,7 @@ export const FileImportModal: React.FC<FileImportModalProps> = ({ onConfirm, onC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (file && name.trim()) {
-      onConfirm(file, name.trim());
+      onConfirm(file, name.trim(), swapDimensions);
     }
   };
 
@@ -91,6 +92,25 @@ export const FileImportModal: React.FC<FileImportModalProps> = ({ onConfirm, onC
                       Este nome será usado para identificar o conjunto de peças na lista.
                     </p>
                   </div>
+              )}
+
+              {/* Extraction Options */}
+              {!file.name.toLowerCase().endsWith('.json') && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      id="swapDims"
+                      className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                      checked={swapDimensions}
+                      onChange={(e) => setSwapDimensions(e.target.checked)}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Inverter Comprimento e Largura</p>
+                      <p className="text-[10px] text-slate-500">Troca as medidas se a extração 3D não identificar a orientação correta.</p>
+                    </div>
+                  </label>
+                </div>
               )}
               
               {file.name.toLowerCase().endsWith('.json') && (

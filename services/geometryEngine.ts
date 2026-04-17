@@ -13,7 +13,10 @@ import { RawPart, EdgeBanding, EdgeType } from '../types';
 const calculateDimensions = (box: THREE.Box3, scale: THREE.Vector3) => {
   const size = new THREE.Vector3();
   box.getSize(size);
-  size.multiply(scale);
+  // Usar valor absoluto para escala, evitando problemas com componentes espelhados/negativos
+  size.x = Math.abs(size.x * scale.x);
+  size.y = Math.abs(size.y * scale.y);
+  size.z = Math.abs(size.z * scale.z);
 
   const dims = [
     { axis: 'x', val: size.x },
@@ -22,6 +25,7 @@ const calculateDimensions = (box: THREE.Box3, scale: THREE.Vector3) => {
   ].sort((a, b) => a.val - b.val);
   
   let unitMultiplier = 1;
+  // Se a maior dimensão for muito pequena (ex: < 5mm em escala real), provavelmente está em metros
   if (dims[2].val < 5) unitMultiplier = 1000;
 
   return {
@@ -48,7 +52,7 @@ const findMeaningfulName = (mesh: THREE.Object3D): string => {
     let current: THREE.Object3D | null = mesh;
     while (current && current.type !== 'Scene') {
         const candidate = cleanName(current.name);
-        if (candidate && candidate.length > 2 && !/^\d+$/.test(candidate)) return candidate;
+        if (candidate && candidate.length >= 2 && !/^\d+$/.test(candidate)) return candidate;
         current = current.parent;
     }
     return '';
@@ -131,10 +135,18 @@ const detectEdgeBanding = (meshes: THREE.Mesh[]): Map<string, { banding: EdgeBan
         };
     });
 
-    let maxCoord = 0;
-    worldObstacles.forEach(o => maxCoord = Math.max(maxCoord, Math.abs(o.worldBox.max.x)));
-    const isMeters = maxCoord < 100;
-    const CONTACT_TOLERANCE = isMeters ? 0.0015 : 1.5; 
+    // Determinar se o modelo está em metros ou milímetros baseado no tamanho das peças
+    let maxPartSize = 0;
+    worldObstacles.forEach(o => {
+        const size = new THREE.Vector3();
+        o.worldBox.getSize(size);
+        maxPartSize = Math.max(maxPartSize, size.x, size.y, size.z);
+    });
+    
+    // Se a maior peça tem menos de 15 unidades, provavelmente está em metros (ex: 2.7m)
+    // Se tem mais, provavelmente está em mm (ex: 2700mm)
+    const isMeters = maxPartSize < 15;
+    const CONTACT_TOLERANCE = isMeters ? 0.0005 : 0.5; // 0.5mm de tolerância
 
     meshes.forEach(mesh => {
         if (!mesh.visible) {
@@ -149,90 +161,91 @@ const detectEdgeBanding = (meshes: THREE.Mesh[]): Map<string, { banding: EdgeBan
         const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scale = new THREE.Vector3();
         mesh.matrixWorld.decompose(pos, quat, scale);
 
-        // Ordena dimensões
+        // Ordena dimensões (usando Math.abs para escala, evitando problemas com espelhamento)
         const dims = [
-            { axis: new THREE.Vector3(1,0,0), val: (localBox.max.x - localBox.min.x) * scale.x, id: 'x' },
-            { axis: new THREE.Vector3(0,1,0), val: (localBox.max.y - localBox.min.y) * scale.y, id: 'y' },
-            { axis: new THREE.Vector3(0,0,1), val: (localBox.max.z - localBox.min.z) * scale.z, id: 'z' }
+            { axis: new THREE.Vector3(1,0,0), val: (localBox.max.x - localBox.min.x) * Math.abs(scale.x), id: 'x' },
+            { axis: new THREE.Vector3(0,1,0), val: (localBox.max.y - localBox.min.y) * Math.abs(scale.y), id: 'y' },
+            { axis: new THREE.Vector3(0,0,1), val: (localBox.max.z - localBox.min.z) * Math.abs(scale.z), id: 'z' }
         ].sort((a,b) => a.val - b.val);
 
         const thicknessAxis = dims[0];
-        const widthAxis = dims[1];   // Eixo Médio (Short Edges)
-        const lengthAxis = dims[2];  // Eixo Maior (Long Edges)
+        const widthAxis = dims[1];   // Eixo Médio (Short Edges boundaries)
+        const lengthAxis = dims[2];  // Eixo Maior (Long Edges boundaries)
 
         const thicknessMm = isMeters ? thicknessAxis.val * 1000 : thicknessAxis.val;
         
         // --- DETECÇÃO DE BOLEADO (MAIS AGRESSIVA) ---
         let meaningfulName = findMeaningfulName(mesh).toLowerCase();
-        
-        // Fallback: se o nome limpo ficou vazio, usa o nome original para tentar achar palavras-chave
         if (!meaningfulName) meaningfulName = mesh.name.toLowerCase();
 
         const keywords = ['bolead', 'abalu', 'arredond', 'curv'];
         const isBoleado = keywords.some(k => meaningfulName.includes(k));
 
-        // Se for espesso OU boleado -> Dashed (Força se boleado)
         const defaultStyle = (thicknessMm > 15.5 || isBoleado) ? 'dashed' : 'solid';
 
-        const worldWidthVec = widthAxis.axis.clone().applyQuaternion(quat).normalize();
-        const worldLengthVec = lengthAxis.axis.clone().applyQuaternion(quat).normalize();
-
-        // --- LÓGICA DE MATERIAIS DE FACE (2ª COR) ---
-        // DESABILITADO POR SOLICITAÇÃO DO USUÁRIO:
-        // "Na extração das peças, ele está identificando as fitas de outra cor, não quero mais que tenha essa identificação automática"
+        // --- LÓGICA DE MATERIAIS DE FACE ---
         const faceMaterials: Record<string, boolean> = { long1: false, long2: false, short1: false, short2: false };
         let detectedColorName: string | undefined = undefined;
         let mainMaterialName: string | undefined = undefined;
 
         if (Array.isArray(mesh.material)) {
             const materials = mesh.material as THREE.Material[];
-            
-            // Map axes to BoxGeometry face indices
-            // x-axis is indices 0,1; y is 2,3; z is 4,5
             const mapAxisToIndices = (axisId: string) => {
                 if (axisId === 'x') return [0, 1];
                 if (axisId === 'y') return [2, 3];
                 return [4, 5];
             };
-
             const lidIndices = mapAxisToIndices(thicknessAxis.id);
-            
-            // Identify the main panel material (Lid)
-            // Use index 0 if specific index is out of bounds
             const lidMatIndex = lidIndices[0] < materials.length ? lidIndices[0] : 0;
             const lidMat = materials[lidMatIndex];
-            
-            if (lidMat) {
-                mainMaterialName = lidMat.name;
-            }
+            if (lidMat) mainMaterialName = lidMat.name;
         } else {
-             // Single Material
              mainMaterialName = (mesh.material as THREE.Material).name;
         }
 
         // --- DETECÇÃO DE CONTATO ---
-        const isFaceCovered = (normalDir: THREE.Vector3, distToFace: number): boolean => {
+        const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
+
+        const isFaceCovered = (localNormal: THREE.Vector3, axisFullSpan: number): boolean => {
             const worldFaceCenter = new THREE.Vector3().copy(center).applyMatrix4(mesh.matrixWorld);
-            const offset = normalDir.clone().multiplyScalar((distToFace / 2) + (CONTACT_TOLERANCE * 0.5));
-            const sensorPoint = worldFaceCenter.add(offset);
+            const worldNormal = localNormal.clone().applyMatrix3(normalMatrix).normalize();
+            
+            // Ponto de sensor ligeiramente fora da face (0.25mm - 0.5mm)
+            const sensorPos = worldFaceCenter.clone().add(worldNormal.clone().multiplyScalar((axisFullSpan / 2) + (CONTACT_TOLERANCE * 0.75)));
 
             for (const obs of worldObstacles) {
                 if (obs.uuid === mesh.uuid) continue;
-                if (!obs.worldBox.containsPoint(sensorPoint)) {
-                    const expandedBox = obs.worldBox.clone().expandByScalar(CONTACT_TOLERANCE);
-                    if (!expandedBox.containsPoint(sensorPoint)) continue;
+                
+                // Checagem rápida por Bounding Box expandida
+                if (!obs.worldBox.containsPoint(sensorPos)) {
+                    const expandedBox = obs.worldBox.clone().expandByScalar(CONTACT_TOLERANCE * 2);
+                    if (!expandedBox.containsPoint(sensorPos)) continue;
                 }
-                const localSensorPoint = sensorPoint.clone().applyMatrix4(obs.invMatrix);
-                const localBoxExpanded = obs.localBox.clone().expandByScalar(CONTACT_TOLERANCE / Math.max(scale.x, scale.y, scale.z));
-                if (localBoxExpanded.containsPoint(localSensorPoint)) return true;
+                
+                const localSensorPoint = sensorPos.clone().applyMatrix4(obs.invMatrix);
+                const obsScale = new THREE.Vector3();
+                obs.mesh.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), obsScale);
+                const maxS = Math.max(Math.abs(obsScale.x), Math.abs(obsScale.y), Math.abs(obsScale.z));
+                const localTol = CONTACT_TOLERANCE / (maxS || 1);
+                
+                if (obs.localBox.clone().expandByScalar(localTol).containsPoint(localSensorPoint)) return true;
             }
             return false;
         };
         
-        const long1_Covered = isFaceCovered(worldWidthVec.clone().negate(), widthAxis.val);
-        const long2_Covered = isFaceCovered(worldWidthVec, widthAxis.val);
-        const short1_Covered = isFaceCovered(worldLengthVec, lengthAxis.val);
-        const short2_Covered = isFaceCovered(worldLengthVec.clone().negate(), lengthAxis.val);
+        const getLocalAxis = (id: string) => {
+            if (id === 'x') return new THREE.Vector3(1, 0, 0);
+            if (id === 'y') return new THREE.Vector3(0, 1, 0);
+            return new THREE.Vector3(0, 0, 1);
+        };
+
+        const widthNormal = getLocalAxis(widthAxis.id);
+        const lengthNormal = getLocalAxis(lengthAxis.id);
+
+        const long1_Covered = isFaceCovered(widthNormal.clone().negate(), widthAxis.val);
+        const long2_Covered = isFaceCovered(widthNormal, widthAxis.val);
+        const short1_Covered = isFaceCovered(lengthNormal, lengthAxis.val);
+        const short2_Covered = isFaceCovered(lengthNormal.clone().negate(), lengthAxis.val);
 
         const resolveEdge = (isCovered: boolean, isDistinctColor: boolean): EdgeType => {
             if (isCovered) return 'none';

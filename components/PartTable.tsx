@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ProcessedPart, RegisteredMaterial, EdgeBanding, EdgeType, RegisteredEdgeBand } from '../types';
-import { Trash2, Copy, PlusCircle, Palette } from 'lucide-react';
+import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight } from 'lucide-react';
 
 interface PartTableProps {
   parts: ProcessedPart[];
@@ -98,8 +98,9 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                 <th className="px-2 py-3 w-24 border border-slate-300">Projeto</th>
                 <th className="px-2 py-3 w-28 border border-slate-300">Material</th>
                 <th className="px-2 py-3 w-auto border border-slate-300">Nome da Peça</th> 
-                <th className="px-1 py-3 w-20 text-right border border-slate-300">Comp.</th>
-                <th className="px-1 py-3 w-20 text-right border border-slate-300">Larg.</th>
+                <th className="px-1 py-3 w-16 text-right border border-slate-300">Comp.</th>
+                <th className="px-0 py-3 w-6 text-center border border-slate-300" title="Inverter Dimensões"></th>
+                <th className="px-1 py-3 w-16 text-right border border-slate-300">Larg.</th>
                 <th className="px-1 py-3 w-10 text-center border border-slate-300">Esp.</th>
                 <th className="px-1 py-3 w-36 text-center border border-slate-300">
                     <div className="flex justify-center gap-4">
@@ -178,6 +179,15 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                         onChange={(e) => onUpdatePart(part.id, 'height', Number(e.target.value))}
                         className="w-full text-right text-slate-700 font-mono bg-transparent border border-transparent hover:border-slate-300 rounded px-1 py-1 focus:border-blue-500 outline-none"
                     />
+                </td>
+                <td className="px-0 py-2 text-center border border-slate-300 bg-slate-50/50">
+                    <button 
+                        onClick={() => onUpdatePart(part.id, 'swapDimensions', null)}
+                        className="p-1 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition-all shadow-sm border border-transparent hover:border-slate-200"
+                        title="Inverter Comprimento e Largura"
+                    >
+                        <ArrowLeftRight size={10} />
+                    </button>
                 </td>
                 <td className="px-1 py-2 text-right border border-slate-300">
                     <input 

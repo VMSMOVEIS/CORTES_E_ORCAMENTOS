@@ -270,6 +270,14 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
 
     const subtotal = totalMaterialCost + totalHardwareCost + totalEdgeCost + calculatedLaborCost + indirectCostsTotal + otherCosts;
     
+    // Monthly Projection Calculations
+    const totalProjectHours = (materialProdTimeMinutes + edgeBandingTimeMinutes + totalAssemblyTimeMinutes) / 60;
+    const workingDays = globalConfig.laborCostSettings?.workingDays || 22;
+    const workingHoursPerDay = globalConfig.laborCostSettings?.hoursPerDay || 8;
+    const numberOfEmployees = globalConfig.laborCostSettings?.numberOfEmployees || 1;
+    const totalMonthlyHours = workingDays * workingHoursPerDay * numberOfEmployees;
+    const monthlyQty = totalProjectHours > 0 ? Math.floor(totalMonthlyHours / totalProjectHours) : 0;
+
     // Profit Calculation (Time Based with Manual Margin Override)
     // const totalHours = ... (already calculated above)
     const days = globalConfig.laborCostSettings?.workingDays || 22;
@@ -308,6 +316,11 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
         profit = timeBasedProfit;
         finalPrice = initialFinalPrice;
     }
+
+    const monthlyRevenue = monthlyQty * finalPrice;
+    const variableCostsPerUnit = totalMaterialCost + totalEdgeCost + totalHardwareCost + otherCosts;
+    const monthlyVariableCosts = monthlyQty * variableCostsPerUnit;
+    const monthlyProfit = monthlyQty * profit;
 
     const handleAddManualHardware = () => {
         if (!newHardwareItem.name) return;
@@ -638,40 +651,39 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                             
                             {/* Costs Breakdown */}
                             <div className="space-y-3 pb-6 border-b border-slate-100">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Materiais</span>
-                                    <span className="font-bold text-slate-700">R$ {totalMaterialCost.toFixed(2)}</span>
+                                {/* Matéria Prima Group */}
+                                <div className="p-3 bg-slate-50 rounded-lg space-y-2 border border-slate-100">
+                                    <div className="flex justify-between text-sm font-bold text-slate-800">
+                                        <span>Matéria Prima</span>
+                                        <span>R$ {(totalMaterialCost + totalEdgeCost + totalHardwareCost).toFixed(2)}</span>
+                                    </div>
+                                    <div className="pl-3 space-y-1 border-l-2 border-slate-200 ml-1">
+                                        <div className="flex justify-between text-[11px] text-slate-500">
+                                            <span>Materiais (Chapas)</span>
+                                            <span>R$ {totalMaterialCost.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[11px] text-slate-500">
+                                            <span>Fitas de Borda</span>
+                                            <span>R$ {totalEdgeCost.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[11px] text-slate-500">
+                                            <span>Ferragens</span>
+                                            <span>R$ {totalHardwareCost.toFixed(2)}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Fitas de Borda</span>
-                                    <span className="font-bold text-slate-700">R$ {totalEdgeCost.toFixed(2)}</span>
+
+                                <div className="flex justify-between text-sm font-bold">
+                                    <span className="text-slate-700">Nº de peças</span>
+                                    <span className="text-slate-700">{totalPartsCount}</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Ferragens</span>
-                                    <span className="font-bold text-slate-700">R$ {totalHardwareCost.toFixed(2)}</span>
+                                <div className="flex justify-between text-sm font-bold">
+                                    <span className="text-slate-700">Total de Horas</span>
+                                    <span className="text-slate-700">{totalProjectHours.toFixed(2)} h</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Nº de peças</span>
-                                    <span className="font-bold text-slate-700">{totalPartsCount}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Total de Horas</span>
-                                    <span className="font-bold text-slate-700">{((materialProdTimeMinutes + edgeBandingTimeMinutes + totalAssemblyTimeMinutes)/60).toFixed(2)} h</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Qtd. Produtos/Mês</span>
-                                    <span className="font-bold text-blue-600">
-                                        {(() => {
-                                            const totalHours = (materialProdTimeMinutes + edgeBandingTimeMinutes + totalAssemblyTimeMinutes) / 60;
-                                            const days = globalConfig.laborCostSettings?.workingDays || 22;
-                                            const hours = globalConfig.laborCostSettings?.hoursPerDay || 8;
-                                            const employees = globalConfig.laborCostSettings?.numberOfEmployees || 1;
-                                            const theoreticalHours = days * hours * employees;
-                                            
-                                            if (totalHours <= 0) return '0';
-                                            return Math.floor(theoreticalHours / totalHours).toString();
-                                        })()}
-                                    </span>
+                                <div className="flex justify-between text-sm font-bold">
+                                    <span className="text-slate-700">Qnt Produto mês</span>
+                                    <span className="text-blue-600">{monthlyQty}</span>
                                 </div>
                                 
                                 {/* Labor Breakdown */}
@@ -726,6 +738,27 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                                 <span className="font-bold text-slate-600 uppercase text-xs">Custo Total</span>
                                 <span className="font-black text-slate-800 text-lg">R$ {subtotal.toFixed(2)}</span>
                             </div>
+
+                            {/* Projeção Section */}
+                            <div className="border border-blue-100 bg-blue-50/50 p-4 rounded-xl space-y-3">
+                                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                    <TrendingUp size={14}/> Projeção Mensal
+                                </h4>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500">Faturamento esperado/mês</span>
+                                        <span className="font-bold text-slate-700">R$ {monthlyRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500">Custo variável esperado/mês</span>
+                                        <span className="font-bold text-red-600">R$ {monthlyVariableCosts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm items-center pt-2 border-t border-blue-100/50">
+                                        <span className="text-slate-600 font-bold underline decoration-blue-200 underline-offset-4">Lucro esperado/mês</span>
+                                        <span className="font-black text-blue-700 text-lg">R$ {monthlyProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                             </div>
 
                             {/* Margin Input (Editable) */}
                             <div className="space-y-2">

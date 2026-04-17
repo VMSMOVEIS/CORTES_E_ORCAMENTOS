@@ -347,11 +347,12 @@ const App: React.FC = () => {
   };
 
   // Lógica Unificada para carregar arquivo (JSON ou 3D)
-  const handleUnifiedFileLoad = async (file: File, name: string) => {
+  const handleUnifiedFileLoad = async (file: File, name: string, swapDimensions: boolean = false) => {
       const fileName = file.name.toLowerCase();
 
-      // 1. SE FOR JSON (BACKUP DE PROJETO)
+      // ... existing logic ...
       if (fileName.endsWith('.json')) {
+          // ... (reader logic)
           const reader = new FileReader();
           reader.onload = (e) => {
               try {
@@ -387,7 +388,7 @@ const App: React.FC = () => {
       }
 
       // 2. SE FOR ARQUIVO 3D
-      processFileWithName(file, name);
+      processFileWithName(file, name, swapDimensions);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -440,7 +441,7 @@ const App: React.FC = () => {
     }
   };
 
-  const processFileWithName = async (file: File, customSourceName: string) => {
+  const processFileWithName = async (file: File, customSourceName: string, swapDimensions: boolean = false) => {
     try {
       if (parts.length === 0) setProjectName(customSourceName);
       setStatus({ step: 'parsing', message: `Lendo ${file.name}...` });
@@ -450,7 +451,7 @@ const App: React.FC = () => {
       setStatus({ step: 'analyzing', message: 'Aplicando engenharia...' });
       
       // NOVA LÓGICA: Separar Painéis de Ferragens
-      const { panels, hardware } = analyzePartsLocally(rawParts, parts.length);
+      const { panels, hardware } = analyzePartsLocally(rawParts, parts.length, swapDimensions);
       
       const partsWithSource = panels.map(p => ({ ...p, sourceFile: customSourceName }));
       const hardwareWithSource = hardware.map(h => ({ ...h, sourceFile: customSourceName }));
@@ -908,6 +909,21 @@ const App: React.FC = () => {
                                         updatedPart = { ...p, dimensions: { ...p.dimensions, [f]: Number(v) } };
                                         const mat = materials.find(m => m.name === p.materialName);
                                         updatedPart.notes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                    } else if (f === 'swapDimensions') {
+                                        const newDimensions = {
+                                            ...p.dimensions,
+                                            width: p.dimensions.height,
+                                            height: p.dimensions.width
+                                        };
+                                        const newEdges: EdgeBanding = {
+                                            long1: p.edges.short1,
+                                            long2: p.edges.short2,
+                                            short1: p.edges.long1,
+                                            short2: p.edges.long2
+                                        };
+                                        updatedPart = { ...p, dimensions: newDimensions, edges: newEdges };
+                                        const mat = materials.find(m => m.name === p.materialName);
+                                        updatedPart.notes = generateAutomatedNotes(newEdges, newDimensions, mat, p.detectedEdgeColor, !!isBoleado);
                                     } else if (f === 'edges') {
                                         const mat = materials.find(m => m.name === p.materialName);
                                         
@@ -1154,8 +1170,8 @@ const App: React.FC = () => {
       
       {showImportModal && (
         <FileImportModal 
-            onConfirm={(file, name) => {
-                handleUnifiedFileLoad(file, name);
+            onConfirm={(file, name, swap) => {
+                handleUnifiedFileLoad(file, name, swap);
                 setShowImportModal(false);
             }} 
             onCancel={() => setShowImportModal(false)} 
