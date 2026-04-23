@@ -53,23 +53,23 @@ export const MaterialMapper: React.FC<MaterialMapperProps> = ({ parts, registere
             const isRegistered = !!matchedMaterial;
             
             return (
-                <div key={`panel-${group.name}-${group.thickness}`} className="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-blue-300 group relative">
-                    <div className="flex items-center gap-6">
-                        <div className="flex flex-col min-w-[140px]">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Material Original</span>
-                            <span className="text-sm font-black text-slate-800 truncate max-w-[180px]" title={group.name}>
-                                {group.name} <span className="text-slate-400 font-bold ml-1">({group.thickness}mm)</span>
+                <div key={`panel-${group.name}-${group.thickness}`} className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300 group relative">
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col min-w-[120px]">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 italic">Material Original</span>
+                            <span className="text-xs font-black text-slate-800 truncate max-w-[160px]" title={group.name}>
+                                {group.name} <span className="text-slate-400 font-bold ml-1 text-[10px]">({group.thickness}mm)</span>
                             </span>
-                            <span className="text-[10px] text-slate-400 font-black uppercase mt-1">{group.count} peças</span>
+                            <span className="text-[9px] text-slate-400 font-black uppercase mt-0.5">{group.count} peças</span>
                         </div>
                         
-                        <ArrowRightLeft size={16} className="text-slate-300 shrink-0 group-hover:text-blue-500 transition-colors" />
+                        <ArrowRightLeft size={14} className="text-slate-300 shrink-0 group-hover:text-blue-500 transition-colors" />
                         
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 italic">Mapear Para</span>
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-0.5 italic">Mapear Para</span>
                             <div className="relative">
                                 <select 
-                                    className={`appearance-none text-xs font-black border-none bg-slate-50 rounded-xl px-4 py-3 pr-10 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer w-64 ${!isRegistered ? 'text-amber-600 ring-1 ring-amber-200' : 'text-blue-700 ring-1 ring-blue-100 shadow-inner'}`}
+                                    className={`appearance-none text-[11px] font-black border-none bg-slate-50 rounded-lg px-3 py-2 pr-8 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer w-56 ${!isRegistered ? 'text-amber-600 ring-1 ring-amber-200' : 'text-blue-700 ring-1 ring-blue-100 shadow-inner'}`}
                                     value={matchedMaterial ? matchedMaterial.id : ""}
                                     onChange={(e) => {
                                         const selectedId = e.target.value;
@@ -93,10 +93,10 @@ export const MaterialMapper: React.FC<MaterialMapperProps> = ({ parts, registere
 
                     <button 
                         onClick={() => onBatchDelete(group.name, group.thickness)}
-                        className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 ml-4 group-hover:scale-110"
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100 ml-4 group-hover:scale-110"
                         title={`Excluir todas as ${group.count} peças deste material`}
                     >
-                        <Trash2 size={20} />
+                        <Trash2 size={16} />
                     </button>
                 </div>
             );

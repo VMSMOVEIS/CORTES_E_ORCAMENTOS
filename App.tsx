@@ -1082,7 +1082,7 @@ const App: React.FC = () => {
 
                                         return updatedPart;
                                     }))}
-                                    onDeletePart={id => updatePartsWithHistory(prev => prev.filter(p => id !== id))}
+                                    onDeletePart={id => updatePartsWithHistory(prev => prev.filter(p => p.id !== id))}
                                     onMoveToHardware={handleMovePartToHardware}
                                     onDuplicatePart={id => {
                                         const p = parts.find(p => p.id === id);
@@ -1103,6 +1103,31 @@ const App: React.FC = () => {
                                             { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
                                             { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
                                             { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
+                                            ...(() => {
+                                                const edgeTotals: Record<string, number> = {
+                                                    'Fita Sólida': 0,
+                                                    'Fita Pontilhada': 0,
+                                                    '2ª Cor': 0
+                                                };
+                                                parts.forEach(p => {
+                                                    const qty = p.quantity || 1;
+                                                    const { width, height } = p.dimensions;
+                                                    const { long1, long2, short1, short2 } = p.edges;
+                                                    [long1, long2].forEach(edge => {
+                                                        if (edge === 'solid') edgeTotals['Fita Sólida'] += (height * qty);
+                                                        if (edge === 'dashed') edgeTotals['Fita Pontilhada'] += (height * qty);
+                                                        if (edge === 'colored') edgeTotals['2ª Cor'] += (height * qty);
+                                                    });
+                                                    [short1, short2].forEach(edge => {
+                                                        if (edge === 'solid') edgeTotals['Fita Sólida'] += (width * qty);
+                                                        if (edge === 'dashed') edgeTotals['Fita Pontilhada'] += (width * qty);
+                                                        if (edge === 'colored') edgeTotals['2ª Cor'] += (width * qty);
+                                                    });
+                                                });
+                                                return Object.entries(edgeTotals)
+                                                    .filter(([_, mm]) => mm > 0)
+                                                    .map(([l, mm]) => ({ label: l, value: (mm / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m' }));
+                                            })(),
                                             { label: 'Aproveitamento Médio', value: '78,4 %' },
                                         ].map((item, i) => (
                                             <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
@@ -1174,7 +1199,11 @@ const App: React.FC = () => {
                     result={optimizationResult} 
                     config={globalConfig}
                     projectName={projectName}
-                    parts={parts} // NOVA PROP PASSANDO TODAS AS PEÇAS
+                    parts={parts} 
+                    materials={materials}
+                    hardware={extractedHardware}
+                    hardwareRegistry={hardwareRegistry}
+                    edgeRegistry={edgeRegistry}
                   />
               )}
 
