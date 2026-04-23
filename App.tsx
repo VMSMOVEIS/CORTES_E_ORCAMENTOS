@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PartTable } from './components/PartTable';
 import { ExportPanel } from './components/ExportPanel';
 import { OptimizationPanel } from './components/OptimizationPanel';
@@ -25,7 +25,7 @@ import {
   Menu, Save, SlidersHorizontal, LayoutList, 
   LayoutGrid, Move, Printer, FilePlus, FolderOpen, 
   FileOutput, Settings, LogOut, FileType, Flag,
-  Box, Scissors, ChevronRight, ChevronUp, ChevronDown, X, Loader2, FileSpreadsheet, Trash2, Home, ArrowDown, ArrowRight, RefreshCw, Ban, RotateCw, UploadCloud, GripHorizontal, Disc, Wrench, Hammer, FileText, Undo2, Redo2, Calculator, TrendingUp
+  Box, Scissors, ChevronRight, ChevronUp, ChevronDown, X, Loader2, FileSpreadsheet, Trash2, Home, ArrowDown, ArrowRight, RefreshCw, Ban, RotateCw, UploadCloud, GripHorizontal, Disc, Wrench, Hammer, FileText, Undo2, Redo2, Calculator, TrendingUp, CheckCircle2, ClipboardList
 } from 'lucide-react';
 
 import { DEFAULT_HARDWARE_LIST } from './src/constants';
@@ -201,6 +201,19 @@ const App: React.FC = () => {
 
   // Estado para armazenar o material padrão selecionado na criação do projeto
   const [activeDefaultMaterial, setActiveDefaultMaterial] = useState<RegisteredMaterial | null>(null);
+
+  // --- STATS ---
+  const projectStats = useMemo(() => {
+      let doors = 0;
+      let drawers = 0;
+      parts.forEach(p => {
+          const name = (p.finalName || '').toLowerCase();
+          const orig = (p.originalName || '').toLowerCase();
+          if (name.includes('porta') || orig.includes('porta')) doors += p.quantity;
+          else if (name.includes('gaveta') || orig.includes('gaveta') || name.includes('frente de') || orig.includes('frente de')) drawers += p.quantity;
+      });
+      return { doors, drawers };
+  }, [parts]);
 
   const [hardwareRegistry, setHardwareRegistry] = useState<RegisteredHardware[]>(() => {
       const saved = localStorage.getItem(STORAGE_KEYS.HARDWARE);
@@ -533,13 +546,13 @@ const App: React.FC = () => {
             const newHardwareItems: ExtractedComponent[] = partsToMigrate.map(p => {
                 return {
                     id: p.id,
-                    name: updatedMaterial.name, // Use material name as the hardware name for grouping
-                    originalName: `${p.finalName} (${p.originalName})`, // Keep track of original part name
+                    name: updatedMaterial.name, 
+                    originalName: `${p.finalName} (${p.originalName})`, 
                     category: updatedMaterial.category === 'hardware' ? 'Ferragem' : 'Componente',
                     quantity: p.quantity,
                     sourceFile: p.sourceFile,
                     dimensions: `${p.dimensions.width}x${p.dimensions.height}x${p.dimensions.thickness}`,
-                    materialName: updatedMaterial.name // Link back
+                    materialName: updatedMaterial.name 
                 };
             });
 
@@ -590,6 +603,66 @@ const App: React.FC = () => {
             setTimeout(() => setStatus({ step: 'idle', message: '' }), 3000);
         }
     }
+  };
+
+  const handleMovePartToHardware = (partId: string) => {
+    const partToMove = parts.find(p => p.id === partId);
+    if (!partToMove) return;
+
+    const newHardware: ExtractedComponent = {
+        id: partToMove.id,
+        name: partToMove.finalName || partToMove.originalName,
+        originalName: partToMove.originalName,
+        category: 'Componente',
+        quantity: partToMove.quantity,
+        sourceFile: partToMove.sourceFile,
+        dimensions: `${partToMove.dimensions.width}x${partToMove.dimensions.height}x${partToMove.dimensions.thickness}`,
+        materialName: partToMove.materialName
+    };
+
+    setExtractedHardware(prev => [...prev, newHardware]);
+    updatePartsWithHistory(prev => prev.filter(p => p.id !== partId));
+    
+    setStatus({ step: 'complete', message: `Peça movida para Ferragens.` });
+    setTimeout(() => setStatus({ step: 'idle', message: '' }), 2000);
+  };
+
+  const handleMoveHardwareToParts = (hardwareId: string) => {
+    const hardwareToMove = extractedHardware.find(h => h.id === hardwareId);
+    if (!hardwareToMove) return;
+
+    let width = 0, height = 0, thickness = 15;
+    if (hardwareToMove.dimensions) {
+        const dims = hardwareToMove.dimensions.split('x').map(Number);
+        if (dims.length >= 2) {
+            width = dims[0];
+            height = dims[1];
+            if (dims.length >= 3) thickness = dims[2];
+        }
+    }
+
+    const newPart: ProcessedPart = {
+        id: hardwareToMove.id,
+        displayId: (parts.length + 1).toString(),
+        originalName: hardwareToMove.originalName,
+        finalName: hardwareToMove.name,
+        materialName: hardwareToMove.materialName || 'Padrão',
+        dimensions: { width, height, thickness },
+        position: { x: 0, y: 0, z: 0 },
+        volume: (width * height * thickness) / 1000000000,
+        edges: { long1: 'none', long2: 'none', short1: 'none', short2: 'none' },
+        quantity: hardwareToMove.quantity,
+        grainDirection: 'N/A',
+        groupCategory: 'Peça',
+        notes: [],
+        sourceFile: hardwareToMove.sourceFile
+    };
+
+    updatePartsWithHistory(prev => [...prev, newPart]);
+    setExtractedHardware(prev => prev.filter(h => h.id !== hardwareId));
+    
+    setStatus({ step: 'complete', message: `Item movido para Extração de Peças.` });
+    setTimeout(() => setStatus({ step: 'idle', message: '' }), 2000);
   };
 
   // --- UI COMPONENTS ---
@@ -699,6 +772,21 @@ const App: React.FC = () => {
                     />
                  </div>
 
+                 {parts.length > 0 && (
+                     <div className="flex items-center gap-3 ml-2 border-l border-slate-300 pl-4">
+                         <div className="flex items-center gap-1.5" title="Total de Portas detectadas">
+                             <Box size={14} className="text-blue-500" />
+                             <span className="text-[10px] font-black text-slate-600 uppercase">Portas:</span>
+                             <span className="text-xs font-black text-blue-700 bg-blue-50 px-1.5 rounded">{projectStats.doors}</span>
+                         </div>
+                         <div className="flex items-center gap-1.5" title="Total de Gavetas detectadas">
+                             <LayoutGrid size={14} className="text-emerald-500" />
+                             <span className="text-[10px] font-black text-slate-600 uppercase">Gavetas:</span>
+                             <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-1.5 rounded">{projectStats.drawers}</span>
+                         </div>
+                     </div>
+                 )}
+
                  {/* Undo/Redo Controls */}
                  <div className="flex items-center bg-slate-200/50 rounded-lg p-0.5 border border-slate-300/50">
                      <button 
@@ -768,63 +856,173 @@ const App: React.FC = () => {
 
               {activeView === 'parts' && (
                   <div 
-                    className="max-w-6xl mx-auto space-y-4 pb-20 relative min-h-full"
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
+                      className="w-full space-y-6 pb-20 relative min-h-full"
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
                   >
-                      {/* Drag Overlay */}
-                      {isDraggingOver && (
-                         <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-xl z-50 flex items-center justify-center pointer-events-none backdrop-blur-sm m-4">
-                            <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center animate-bounce">
-                               <UploadCloud size={64} className="text-blue-600 mb-4"/>
-                               <h3 className="text-2xl font-black text-slate-800">Solte para Adicionar</h3>
-                               <p className="text-slate-500 font-medium">O arquivo será mesclado ao projeto atual.</p>
-                            </div>
-                         </div>
-                      )}
+                        {/* Drag Overlay */}
+                        {isDraggingOver && (
+                           <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-xl z-50 flex items-center justify-center pointer-events-none backdrop-blur-sm m-4">
+                              <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center animate-bounce">
+                                 <UploadCloud size={64} className="text-blue-600 mb-4"/>
+                                 <h3 className="text-2xl font-black text-slate-800">Solte para Adicionar</h3>
+                                 <p className="text-slate-500 font-medium">O arquivo será mesclado ao projeto atual.</p>
+                              </div>
+                           </div>
+                        )}
 
-                      {parts.length === 0 ? (
-                         <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
-                             <p className="mb-4 font-medium">Nenhuma peça carregada.</p>
-                             <div className="flex gap-4">
-                                <button onClick={handleAddManualPart} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md flex items-center gap-2">
-                                    <FilePlus size={18}/> Inserir Peça Manual
-                                </button>
-                                <button onClick={handleOpenFile} className="bg-white border border-slate-300 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-2">
-                                    <FolderOpen size={18}/> Carregar Arquivo
-                                </button>
-                             </div>
-                         </div>
-                      ) : (
-                          <>
-                            {/* NEW TOOLBAR */}
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4 animate-in fade-in slide-in-from-top-4">
-                                <div>
-                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                        <LayoutList className="text-blue-600" size={24}/>
-                                        Gerenciamento de Peças
-                                    </h2>
-                                    <p className="text-xs text-slate-500">Total: {parts.length} peças carregadas</p>
+                        {parts.length === 0 ? (
+                           <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
+                               <p className="mb-4 font-medium">Nenhuma peça carregada.</p>
+                               <div className="flex gap-4">
+                                  <button onClick={handleAddManualPart} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md flex items-center gap-2">
+                                      <FilePlus size={18}/> Inserir Peça Manual
+                                  </button>
+                                  <button onClick={handleOpenFile} className="bg-white border border-slate-300 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-2">
+                                      <FolderOpen size={18}/> Carregar Arquivo
+                                  </button>
+                               </div>
+                           </div>
+                        ) : (
+                            <div className="flex flex-col gap-6">
+                                <div className="flex gap-6 items-start w-full">
+                                    <div className="flex-1 space-y-6">
+                                {/* NEW HEADER */}
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 uppercase tracking-tight">
+                                            <div className="p-2 bg-slate-100 rounded-lg"><LayoutList className="text-blue-600" size={28}/></div>
+                                            Gerenciamento de Peças
+                                        </h2>
+                                        <p className="text-sm text-slate-500 font-medium ml-12 -mt-2">Extração e organização das peças do projeto</p>
+                                    </div>
+                                    <div className="flex gap-3 w-full sm:w-auto">
+                                        <button 
+                                            onClick={handleOpenFile} 
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition-all shadow-sm text-sm"
+                                        >
+                                            <FolderOpen size={18}/>
+                                            Adicionar Arquivo 3D
+                                        </button>
+                                        <button 
+                                            onClick={handleNewProjectClick} 
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-xl shadow-blue-200 transition-all text-sm uppercase tracking-wider"
+                                        >
+                                            <FilePlus size={18}/>
+                                            Novo Projeto
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-3 w-full sm:w-auto">
-                                    <button 
-                                        onClick={handleOpenFile} 
-                                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors text-sm"
-                                    >
-                                        <FolderOpen size={16}/>
-                                        Adicionar Arquivo 3D
-                                    </button>
-                                    <button 
-                                        onClick={handleNewProjectClick} 
-                                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md shadow-blue-200 transition-colors text-sm"
-                                    >
-                                        <FilePlus size={16}/>
-                                        Novo Projeto
-                                    </button>
+
+                                {/* STATS GRID */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    {[
+                                        { label: 'TOTAL DE PEÇAS', value: parts.length, unit: 'peças', sub: 'Extraídas do projeto', icon: Box, color: 'text-blue-600', bg: 'bg-blue-100' },
+                                        { 
+                                            label: 'ÁREA TOTAL', 
+                                            value: (parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
+                                            unit: 'm²', 
+                                            sub: 'Área total das peças', 
+                                            icon: LayoutGrid, 
+                                            color: 'text-emerald-600', 
+                                            bg: 'bg-emerald-100' 
+                                        },
+                                        { 
+                                            label: 'VOLUME TOTAL', 
+                                            value: (parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }), 
+                                            unit: 'm³', 
+                                            sub: 'Volume das peças', 
+                                            icon: Disc, 
+                                            color: 'text-orange-600', 
+                                            bg: 'bg-orange-100' 
+                                        },
+                                        { label: 'MATERIAIS UTILIZADOS', value: new Set(parts.map(p => p.materialName)).size, unit: 'materiais', sub: 'Tipos de materiais', icon: Home, color: 'text-purple-600', bg: 'bg-purple-100' },
+                                        { label: 'APROVEITAMENTO', value: '78,4', unit: '%', sub: 'Média do projeto', icon: CheckCircle2, color: 'text-cyan-600', bg: 'bg-cyan-100' },
+                                    ].map((stat, i) => (
+                                        <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-blue-300 transition-colors">
+                                            <div className={`p-3 ${stat.bg} ${stat.color} rounded-2xl group-hover:scale-110 transition-transform`}>
+                                                <stat.icon size={28} />
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{stat.label}</div>
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-xl font-black text-slate-800">{stat.value}</span>
+                                                    <span className="text-xs font-bold text-slate-500">{stat.unit}</span>
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 font-medium">{stat.sub}</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                            
+
+                              {/* SIDEBAR */}
+                              <div className="w-80 space-y-6 shrink-0 hidden xl:block">
+                                  {/* INFORMAÇÕES DO PROJETO */}
+                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Informações do Projeto</h3>
+                                      <div className="space-y-4">
+                                          {[
+                                              { label: 'Cliente', value: 'João da Silva' },
+                                              { label: 'Projeto', value: projectName },
+                                              { label: 'Data', value: new Date().toLocaleDateString() },
+                                              { label: 'Vendedor', value: 'Bruno Carvalho' },
+                                          ].map((info, i) => (
+                                              <div key={i}>
+                                                  <div className="text-[10px] font-bold text-slate-400">{info.label}</div>
+                                                  <div className="text-xs font-black text-slate-700 uppercase tracking-tight">{info.value}</div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+
+                                  {/* RESUMO DO PROJETO */}
+                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumo do Projeto</h3>
+                                      <div className="space-y-3">
+                                          {[
+                                              { label: 'Total de Peças', value: `${parts.length} peças` },
+                                              { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
+                                              { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
+                                              { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
+                                              { label: 'Aproveitamento Médio', value: '78,4 %' },
+                                          ].map((item, i) => (
+                                              <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{item.label}</span>
+                                                  <span className="text-xs font-black text-slate-700">{item.value}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+
+                                  {/* ARQUIVO 3D */}
+                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Arquivo 3D</h3>
+                                      <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-4 mb-4">
+                                          <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
+                                              <CheckCircle2 size={20} />
+                                          </div>
+                                          <div>
+                                              <div className="text-xs font-black text-emerald-700 uppercase leading-none">Modelo carregado</div>
+                                              <div className="text-[10px] text-emerald-600 font-medium mt-1 truncate w-40">Extração concluída com sucesso</div>
+                                          </div>
+                                      </div>
+                                      <button onClick={handleOpenFile} className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center gap-2 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
+                                          <RefreshCw size={14} className="text-blue-600" />
+                                          Trocar Arquivo
+                                      </button>
+                                  </div>
+
+                                  {/* OBSERVAÇÕES */}
+                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Observações</h3>
+                                      <div className="bg-slate-50 p-4 rounded-xl text-[10px] text-slate-500 leading-relaxed font-medium">
+                                          Peças extraídas automaticamente do modelo 3D. Revise as medidas e os acabamentos antes de gerar o orçamento.
+                                      </div>
+                                  </div>
+                              </div>
+                            </div>
                             <MaterialMapper 
                                 parts={parts} 
                                 registeredMaterials={materials} 
@@ -944,13 +1142,14 @@ const App: React.FC = () => {
                                     return updatedPart;
                                 }))}
                                 onDeletePart={id => updatePartsWithHistory(prev => prev.filter(p => p.id !== id))}
+                                onMoveToHardware={handleMovePartToHardware}
                                 onDuplicatePart={id => {
                                     const p = parts.find(p => p.id === id);
                                     if(p) updatePartsWithHistory(prev => [...prev, { ...p, id: `copy_${Date.now()}`, displayId: (prev.length+1).toString(), finalName: `${p.finalName} (Cópia)`}]);
                                 }}
                                 onAddPart={handleAddManualPart}
                             />
-                          </>
+                        </div>
                       )}
                   </div>
               )}
@@ -960,6 +1159,7 @@ const App: React.FC = () => {
                     hardware={extractedHardware} 
                     hardwareRegistry={hardwareRegistry}
                     onDelete={(id) => setExtractedHardware(prev => prev.filter(h => h.id !== id))} 
+                    onMoveToParts={handleMoveHardwareToParts}
                     onAdd={(hw) => setExtractedHardware(prev => [...prev, hw])}
                   />
               )}

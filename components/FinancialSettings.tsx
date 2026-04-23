@@ -243,30 +243,6 @@ export const FinancialSettings: React.FC<FinancialSettingsProps> = ({ globalConf
                                 </div>
                             </div>
                         </div>
-
-                        <div className="space-y-4 pt-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase">Tempo de Montagem</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <span className="text-[10px] font-bold text-slate-400">Tempo Montagem/Peça (min)</span>
-                                    <input 
-                                        type="number" 
-                                        value={globalConfig.laborCostSettings?.assemblyTimePerPart || ''} 
-                                        placeholder="0"
-                                        onChange={e => {
-                                            setGlobalConfig({
-                                                ...globalConfig, 
-                                                laborCostSettings: { 
-                                                    ...globalConfig.laborCostSettings!, 
-                                                    assemblyTimePerPart: Number(e.target.value)
-                                                }
-                                            });
-                                        }} 
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 font-bold text-slate-700 outline-none focus:border-blue-500" 
-                                    />
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

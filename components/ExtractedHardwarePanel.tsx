@@ -6,6 +6,7 @@ interface ExtractedHardwarePanelProps {
   hardware: ExtractedComponent[];
   hardwareRegistry: RegisteredHardware[];
   onDelete: (id: string) => void;
+  onMoveToParts: (id: string) => void;
   onAdd: (hw: ExtractedComponent) => void;
 }
 
@@ -17,7 +18,7 @@ const getLengthMm = (dimStr?: string): number => {
     return Math.max(...nums);
 };
 
-export const ExtractedHardwarePanel: React.FC<ExtractedHardwarePanelProps> = ({ hardware, hardwareRegistry, onDelete, onAdd }) => {
+export const ExtractedHardwarePanel: React.FC<ExtractedHardwarePanelProps> = ({ hardware, hardwareRegistry, onDelete, onMoveToParts, onAdd }) => {
   const [viewMode, setViewMode] = useState<'consolidated' | 'detailed'>('consolidated');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newHw, setNewHw] = useState({ name: '', category: 'Outros', quantity: 1, dimensions: '' });
@@ -570,7 +571,14 @@ export const ExtractedHardwarePanel: React.FC<ExtractedHardwarePanelProps> = ({ 
                                             </td>
                                             <td className="px-6 py-3 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <span className="font-bold text-slate-700">{item.quantity}</span>
+                                                    <button 
+                                                        onClick={() => onMoveToParts(item.id)}
+                                                        className="p-1 px-2 text-blue-500 hover:bg-blue-50 rounded text-xs font-bold border border-blue-100 flex items-center gap-1 transition-all"
+                                                        title="Mover de volta para Extração de Peças"
+                                                    >
+                                                        <ArrowRight size={12} className="rotate-180" /> Peças
+                                                    </button>
+                                                    <span className="font-bold text-slate-700 mx-2">{item.quantity}</span>
                                                     <button 
                                                         onClick={() => onDelete(item.id)}
                                                         className="p-1 text-slate-300 hover:text-red-500 transition-colors"

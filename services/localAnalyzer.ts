@@ -238,12 +238,24 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
     // Gera notas iniciais usando a cor detectada (se houver)
     const notes = generateAutomatedNotes(part.edges, part.dimensions, undefined, part.detectedEdgeColor, isBoleado);
 
-    // --- CLASSIFICAÇÃO GEOMÉTRICA ---
+    const cleanedName = cleanPartName(part.originalName);
+    const lowerCleaned = cleanedName.toLowerCase();
+
+    // --- CLASSIFICAÇÃO ---
     let geoCategory = 'Peça';
     const aspect = rH / rW;
     const area = (rW * rH) / 1000000;
 
-    if (rT <= 7) {
+    // 1. Prioridade por Nome (Baseado no pedido do usuário)
+    if (lowerCleaned.includes('porta')) {
+        geoCategory = "Porta";
+    } else if (lowerCleaned.includes('gaveta') || lowerCleaned.includes('gavetão')) {
+        geoCategory = "Gaveta";
+    } else if (lowerCleaned.includes('frente')) {
+        geoCategory = "Frente Gaveta";
+    }
+    // 2. Classificação Geométrica (Fallback)
+    else if (rT <= 7) {
         geoCategory = "Fundo";
     } else if (aspect > 1.8) {
         geoCategory = "Lateral";
@@ -263,8 +275,6 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
                          /^(Mesh|Object|Model|Component|Group|Box|Cube|Poly)\s*[._]?\d*$/i.test(part.originalName) ||
                          part.originalName.length < 2;
 
-    const cleanedName = cleanPartName(part.originalName);
-    
     // Se o nome limpo for muito curto ou numérico, usa a categoria geométrica
     const baseDisplayName = (isGenericName || cleanedName.length < 2 || /^\d+$/.test(cleanedName)) 
                             ? geoCategory 
