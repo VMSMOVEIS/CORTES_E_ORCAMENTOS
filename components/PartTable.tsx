@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { ProcessedPart, RegisteredMaterial, EdgeBanding, EdgeType, RegisteredEdgeBand } from '../types';
 import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight, Wrench, FileOutput, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -32,9 +32,10 @@ interface EdgeSelectorProps {
   edges: EdgeBanding;
   onUpdate: (edges: EdgeBanding) => void;
   type: 'comp' | 'larg';
+  showLabels?: boolean;
 }
 
-const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type }) => {
+const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type, showLabels = true }) => {
     
     const handleToggle = (side: keyof EdgeBanding, edgeType: EdgeType) => {
         const current = edges[side];
@@ -49,7 +50,7 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type }) =>
         <div className="flex flex-col gap-1.5 py-1">
             {/* ROW 1: SOLID */}
             <div className="flex items-center gap-2">
-                <span className="text-[8px] font-black text-slate-400 uppercase w-10 text-right leading-none">Sólida</span>
+                {showLabels && <span className="text-[8px] font-black text-slate-400 uppercase w-10 text-right leading-none">Sólida</span>}
                 <div className="flex gap-1.5">
                     <EdgeCheckbox checked={edges[side1] === 'solid'} onClick={() => handleToggle(side1, 'solid')} />
                     <EdgeCheckbox checked={edges[side2] === 'solid'} onClick={() => handleToggle(side2, 'solid')} />
@@ -58,7 +59,7 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type }) =>
 
             {/* ROW 2: DASHED */}
             <div className="flex items-center gap-2">
-                <span className="text-[8px] font-black text-blue-500 uppercase w-10 text-right leading-none">Pont.</span>
+                {showLabels && <span className="text-[8px] font-black text-blue-500 uppercase w-10 text-right leading-none">Pont.</span>}
                 <div className="flex gap-1.5">
                     <EdgeCheckbox checked={edges[side1] === 'dashed'} onClick={() => handleToggle(side1, 'dashed')} colorClass="bg-blue-600 border-blue-600" />
                     <EdgeCheckbox checked={edges[side2] === 'dashed'} onClick={() => handleToggle(side2, 'dashed')} colorClass="bg-blue-600 border-blue-600" />
@@ -67,7 +68,7 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type }) =>
 
             {/* ROW 3: COLORED */}
             <div className="flex items-center gap-2">
-                <span className="text-[8px] font-black text-amber-500 uppercase w-10 text-right leading-none whitespace-nowrap">2ª Cor</span>
+                {showLabels && <span className="text-[8px] font-black text-amber-500 uppercase w-10 text-right leading-none whitespace-nowrap">2ª Cor</span>}
                 <div className="flex gap-1.5">
                     <EdgeCheckbox checked={edges[side1] === 'colored'} onClick={() => handleToggle(side1, 'colored')} colorClass="bg-amber-500 border-amber-500" />
                     <EdgeCheckbox checked={edges[side2] === 'colored'} onClick={() => handleToggle(side2, 'colored')} colorClass="bg-amber-500 border-amber-500" />
@@ -78,13 +79,55 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type }) =>
 };
 
 export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials, availableEdgeBands, onUpdatePart, onDeletePart, onMoveToHardware, onDuplicatePart, onAddPart }) => {
+  const [activeTab, setActiveTab] = useState('Todas');
+
+  const filteredParts = useMemo(() => {
+    if (activeTab === 'Todas') return parts;
+    return parts.filter(p => {
+        const name = (p.finalName || '').toLowerCase();
+        const cat = (p.groupCategory || '').toLowerCase();
+        
+        if (activeTab === 'estruturas') {
+            return ['lateral', 'base', 'tampo', 'rodape', 'rodapé', 'travessa', 'divisoria', 'divisória', 'montante', 'ripa'].some(k => name.includes(k) || cat.includes(k));
+        }
+        if (activeTab === 'portas') {
+            return ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k));
+        }
+        if (activeTab === 'prateleiras') {
+            return ['prateleira'].some(k => name.includes(k) || cat.includes(k));
+        }
+        if (activeTab === 'fundos') {
+            return ['fundo'].some(k => name.includes(k) || cat.includes(k));
+        }
+        if (activeTab === 'diversos') {
+            const isStructural = ['lateral', 'base', 'tampo', 'rodape', 'rodapé', 'travessa', 'divisoria', 'divisória', 'montante', 'ripa'].some(k => name.includes(k) || cat.includes(k));
+            const isPorta = ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k));
+            const isPrateleira = ['prateleira'].some(k => name.includes(k) || cat.includes(k));
+            const isFundo = ['fundo'].some(k => name.includes(k) || cat.includes(k));
+            return !isStructural && !isPorta && !isPrateleira && !isFundo;
+        }
+        return true;
+    });
+  }, [parts, activeTab]);
+
   return (
     <div className="flex flex-col gap-4 w-full">
-        {/* TABS FOR VIEW FILTERING (MOCK FOR VISUAL) */}
+        {/* TABS FOR VIEW FILTERING */}
         <div className="flex items-center gap-2 mb-2 h-10">
-            {['Todas as Peças', 'Estruturais', 'Portas', 'Prateleiras', 'Fundos', 'Diversos'].map((tab, i) => (
-                <button key={i} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-tight transition-all ${i === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border border-slate-200 text-slate-400 hover:text-slate-600'}`}>
-                    {tab}
+            {[
+                { id: 'Todas', label: 'Todas as Peças' },
+                { id: 'estruturas', label: 'Estruturas' },
+                { id: 'portas', label: 'Portas' },
+                { id: 'prateleiras', label: 'Prateleiras' },
+                { id: 'fundos', label: 'Fundos' },
+                { id: 'diversos', label: 'Diversos' }
+            ].map((tab) => (
+                <button 
+                    key={tab.id} 
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-tight transition-all ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border border-slate-200 text-slate-400 hover:text-slate-600'}`}
+                >
+                    {tab.label}
                 </button>
             ))}
             <div className="flex-1"></div>
@@ -96,27 +139,27 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
             </button>
         </div>
 
-        <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-x-auto custom-scrollbar">
         <table className="w-full text-left text-sm text-slate-700 table-fixed border-collapse">
             <thead className="bg-[#f8f9fb] text-[10px] uppercase text-slate-400 font-black leading-tight border-b border-slate-200">
             <tr>
-                <th className="px-3 py-4 w-10 text-center">#</th>
-                <th className="px-3 py-4 w-28 border-l border-slate-100">Projeto</th>
-                <th className="px-3 py-4 w-36 border-l border-slate-100">Material</th>
-                <th className="px-3 py-4 border-l border-slate-100">Nome da Peça</th> 
-                <th className="px-2 py-4 w-20 text-right border-l border-slate-100">Comp.</th>
-                <th className="px-2 py-4 w-20 text-right border-l border-slate-100">Larg.</th>
-                <th className="px-2 py-4 w-14 text-center border-l border-slate-100">Esp.</th>
-                <th className="px-3 py-4 w-28 text-center border-l border-slate-100">Comp. (C)</th>
-                <th className="px-3 py-4 w-28 text-center border-l border-slate-100">Larg. (L)</th>
-                <th className="px-2 py-4 w-14 text-center border-l border-slate-100">Qtd.</th>
-                <th className="px-3 py-4 w-32 border-l border-slate-100">Cores / Fitas</th>
-                <th className="px-3 py-4 w-24 border-l border-slate-100">Obs.</th> 
-                <th className="px-3 py-4 w-28 text-center border-l border-slate-100">Ações</th>
+                <th className="px-3 py-4 w-10 text-center border-r border-slate-100">#</th>
+                <th className="px-3 py-4 w-24 border-r border-slate-100">Projeto</th>
+                <th className="px-3 py-4 w-32 border-r border-slate-100">Material</th>
+                <th className="px-3 py-4 w-44 border-r border-slate-100">Nome da Peça</th> 
+                <th className="px-2 py-4 w-16 text-right border-r border-slate-100">Comp.</th>
+                <th className="px-2 py-4 w-16 text-right border-r border-slate-100">Larg.</th>
+                <th className="px-2 py-4 w-12 text-center border-r border-slate-100">Esp.</th>
+                <th className="px-3 py-4 w-28 text-center border-r border-slate-100">Comp. (C)</th>
+                <th className="px-3 py-4 w-16 text-center border-r border-slate-100">Larg. (L)</th>
+                <th className="px-2 py-4 w-14 text-center border-r border-slate-100">Qtd.</th>
+                <th className="px-3 py-4 w-32 border-r border-slate-100">Cores / Fitas</th>
+                <th className="px-3 py-4 w-32 border-r border-slate-100">Obs.</th> 
+                <th className="px-3 py-4 w-20 text-center">Ações</th>
             </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-            {parts.map((part) => {
+            {filteredParts.map((part) => {
                 const hasColoredEdge = 
                     part.edges?.long1 === 'colored' || 
                     part.edges?.long2 === 'colored' || 
@@ -127,11 +170,11 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
 
                 return (
                 <tr key={part.id} className="hover:bg-blue-50/20 transition-colors group">
-                <td className="px-3 py-4 text-center font-bold text-slate-300 text-xs">
+                <td className="px-3 py-4 text-center font-bold text-slate-300 text-xs border-r border-slate-50">
                     {part.displayId}
                 </td>
 
-                <td className="px-3 py-4">
+                <td className="px-3 py-4 border-r border-slate-50">
                     <input 
                         type="text" 
                         value={part.sourceFile}
@@ -140,7 +183,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     />
                 </td>
 
-                <td className="px-3 py-4">
+                <td className="px-3 py-4 border-r border-slate-50">
                     <select 
                         value={part.materialName}
                         onChange={(e) => {
@@ -161,7 +204,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     </select>
                 </td>
                 
-                <td className="px-3 py-4">
+                <td className="px-3 py-4 border-r border-slate-50">
                     <input 
                         type="text" 
                         value={part.finalName}
@@ -170,7 +213,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     />
                 </td>
 
-                <td className="px-2 py-4 text-right">
+                <td className="px-2 py-4 text-right border-r border-slate-50">
                     <input 
                         type="number"
                         value={part.dimensions.height}
@@ -179,7 +222,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     />
                 </td>
                 
-                <td className="px-2 py-4 text-right">
+                <td className="px-2 py-4 text-right border-r border-slate-50">
                     <input 
                         type="number"
                         value={part.dimensions.width}
@@ -188,7 +231,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     />
                 </td>
                 
-                <td className="px-2 py-4 text-center">
+                <td className="px-2 py-4 text-center border-r border-slate-50">
                     <input 
                         type="number"
                         value={part.dimensions.thickness}
@@ -198,22 +241,23 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                 </td>
                 
                 {/* EDGE SELECTORS */}
-                <td className="px-3 py-2 border-l border-slate-50">
+                <td className="px-3 py-2 border-r border-slate-50">
                     <EdgeSelector 
                         edges={part.edges} 
                         onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
                         type="comp"
                     />
                 </td>
-                <td className="px-3 py-2 border-l border-slate-50">
+                <td className="px-3 py-2 border-r border-slate-50">
                     <EdgeSelector 
                         edges={part.edges} 
                         onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
                         type="larg"
+                        showLabels={false}
                     />
                 </td>
-
-                <td className="px-2 py-4 text-center">
+                
+                <td className="px-2 py-4 text-center border-r border-slate-50">
                     <input 
                         type="number" 
                         min="1"
@@ -223,7 +267,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     />
                 </td>
 
-                <td className="px-3 py-4">
+                <td className="px-3 py-4 border-r border-slate-50">
                     <select
                         value={part.detectedEdgeColor || ''}
                         onChange={(e) => onUpdatePart(part.id, 'detectedEdgeColor', e.target.value)}
@@ -236,8 +280,18 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     </select>
                 </td>
 
-                <td className="px-3 py-4">
-                    <div className="text-[10px] font-medium text-slate-400 italic">...</div>
+                <td className="px-3 py-4 border-r border-slate-50">
+                    <input 
+                        type="text"
+                        value={part.notes?.filter(n => !n.startsWith('Fita')).join(', ') || ''}
+                        onChange={(e) => {
+                            const otherNotes = part.notes?.filter(n => n.startsWith('Fita')) || [];
+                            const userNote = e.target.value;
+                            onUpdatePart(part.id, 'notes', userNote ? [...otherNotes, userNote] : otherNotes);
+                        }}
+                        placeholder="Observações..."
+                        className="w-full bg-transparent text-[10px] font-medium text-slate-500 italic outline-none border-b border-transparent focus:border-blue-300 transition-all"
+                    />
                 </td>
 
                 <td className="px-3 py-4">
@@ -263,14 +317,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
         </div>
         
         <div className="flex justify-between items-center py-4 bg-[#f8f9fb] px-6 rounded-2xl border border-slate-200">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-tight">Mostrando 1 a {parts.length} de {parts.length} peças</span>
-            <div className="flex gap-1">
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white"><ChevronLeft size={16}/></button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 text-white font-black text-xs shadow-lg shadow-blue-100">1</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-700 font-bold text-xs hover:bg-white">2</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-700 font-bold text-xs hover:bg-white">3</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white"><ChevronRight size={16}/></button>
-            </div>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-tight">Total: {filteredParts.length} {filteredParts.length === 1 ? 'peça' : 'peças'} extraídas</span>
         </div>
 
         <button 

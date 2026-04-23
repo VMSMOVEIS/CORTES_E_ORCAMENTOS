@@ -918,7 +918,15 @@ const App: React.FC = () => {
                                 {/* STATS GRID */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                                     {[
-                                        { label: 'TOTAL DE PEÇAS', value: parts.length, unit: 'peças', sub: 'Extraídas do projeto', icon: Box, color: 'text-blue-600', bg: 'bg-blue-100' },
+                                        { 
+                                            label: 'TOTAL DE PEÇAS', 
+                                            value: parts.reduce((acc, p) => acc + (p.quantity || 1), 0), 
+                                            unit: 'peças', 
+                                            sub: 'Encontradas no projeto', 
+                                            icon: Box, 
+                                            color: 'text-blue-600', 
+                                            bg: 'bg-blue-100' 
+                                        },
                                         { 
                                             label: 'ÁREA TOTAL', 
                                             value: (parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
@@ -955,204 +963,187 @@ const App: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                            </div>
 
-                              {/* SIDEBAR */}
-                              <div className="w-80 space-y-6 shrink-0 hidden xl:block">
-                                  {/* INFORMAÇÕES DO PROJETO */}
-                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Informações do Projeto</h3>
-                                      <div className="space-y-4">
-                                          {[
-                                              { label: 'Cliente', value: 'João da Silva' },
-                                              { label: 'Projeto', value: projectName },
-                                              { label: 'Data', value: new Date().toLocaleDateString() },
-                                              { label: 'Vendedor', value: 'Bruno Carvalho' },
-                                          ].map((info, i) => (
-                                              <div key={i}>
-                                                  <div className="text-[10px] font-bold text-slate-400">{info.label}</div>
-                                                  <div className="text-xs font-black text-slate-700 uppercase tracking-tight">{info.value}</div>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
-
-                                  {/* RESUMO DO PROJETO */}
-                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumo do Projeto</h3>
-                                      <div className="space-y-3">
-                                          {[
-                                              { label: 'Total de Peças', value: `${parts.length} peças` },
-                                              { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
-                                              { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
-                                              { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
-                                              { label: 'Aproveitamento Médio', value: '78,4 %' },
-                                          ].map((item, i) => (
-                                              <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
-                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{item.label}</span>
-                                                  <span className="text-xs font-black text-slate-700">{item.value}</span>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
-
-                                  {/* ARQUIVO 3D */}
-                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Arquivo 3D</h3>
-                                      <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-4 mb-4">
-                                          <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
-                                              <CheckCircle2 size={20} />
-                                          </div>
-                                          <div>
-                                              <div className="text-xs font-black text-emerald-700 uppercase leading-none">Modelo carregado</div>
-                                              <div className="text-[10px] text-emerald-600 font-medium mt-1 truncate w-40">Extração concluída com sucesso</div>
-                                          </div>
-                                      </div>
-                                      <button onClick={handleOpenFile} className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center gap-2 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
-                                          <RefreshCw size={14} className="text-blue-600" />
-                                          Trocar Arquivo
-                                      </button>
-                                  </div>
-
-                                  {/* OBSERVAÇÕES */}
-                                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Observações</h3>
-                                      <div className="bg-slate-50 p-4 rounded-xl text-[10px] text-slate-500 leading-relaxed font-medium">
-                                          Peças extraídas automaticamente do modelo 3D. Revise as medidas e os acabamentos antes de gerar o orçamento.
-                                      </div>
-                                  </div>
-                              </div>
-                            </div>
-                            <MaterialMapper 
-                                parts={parts} 
-                                registeredMaterials={materials} 
-                                onBatchDelete={(name, thickness) => {
-                                    const count = parts.filter(p => p.materialName === name && Math.round(p.dimensions.thickness) === thickness).length;
-                                    if(window.confirm(`Tem certeza que deseja excluir TODAS as ${count} peças do material "${name}" (${thickness}mm)?`)) {
+                                <MaterialMapper 
+                                    parts={parts} 
+                                    registeredMaterials={materials} 
+                                    onBatchDelete={(name, thickness) => {
+                                        const count = parts.filter(p => p.materialName === name && Math.round(p.dimensions.thickness) === thickness).length;
+                                        if(window.confirm(`Tem certeza que deseja excluir TODAS as ${count} peças do material "${name}" (${thickness}mm)?`)) {
+                                            // Use history wrapper
+                                            updatePartsWithHistory(prev => prev.filter(p => !(p.materialName === name && Math.round(p.dimensions.thickness) === thickness)));
+                                        }
+                                    }}
+                                    onBatchUpdate={(oldN, oldT, newM) => {
                                         // Use history wrapper
-                                        updatePartsWithHistory(prev => prev.filter(p => !(p.materialName === name && Math.round(p.dimensions.thickness) === thickness)));
-                                    }
-                                }}
-                                onBatchUpdate={(oldN, oldT, newM) => {
-                                    // Use history wrapper
-                                    updatePartsWithHistory(prev => prev.map(p => {
-                                        // Match by Name AND Thickness
-                                        if (p.materialName === oldN && Math.round(p.dimensions.thickness) === Math.round(oldT)) {
-                                            // FIX: PRESERVE EXISTING EDGES UNLESS THE NEW MATERIAL EXPLICITLY FORBIDS THEM
-                                            const newEdges = (newM.hasEdgeBand === false) 
-                                                ? { long1: 'none', long2: 'none', short1: 'none', short2: 'none' } as EdgeBanding
-                                                : p.edges; // Mantém a configuração de fita atual
-                                            
-                                            // Extract existing CUSTOM color to preserve it
-                                            let customEdgeColor = undefined;
-                                            const existingNote = p.notes?.find(n => n.startsWith('Fita ') && n.includes(' em '));
-                                            if (existingNote) {
-                                                const match = existingNote.match(/Fita\s+(.+?)\s+em/);
-                                                if (match && match[1] !== '2ª Cor') {
-                                                    customEdgeColor = match[1];
+                                        updatePartsWithHistory(prev => prev.map(p => {
+                                            // Match by Name AND Thickness
+                                            if (p.materialName === oldN && Math.round(p.dimensions.thickness) === Math.round(oldT)) {
+                                                // FIX: PRESERVE EXISTING EDGES UNLESS THE NEW MATERIAL EXPLICITLY FORBIDS THEM
+                                                const newEdges = (newM.hasEdgeBand === false) 
+                                                    ? { long1: 'none', long2: 'none', short1: 'none', short2: 'none' } as EdgeBanding
+                                                    : p.edges; // Mantém a configuração de fita atual
+                                                
+                                                // Extract existing CUSTOM color to preserve it
+                                                let customEdgeColor = undefined;
+                                                const existingNote = p.notes?.find(n => n.startsWith('Fita ') && n.includes(' em '));
+                                                if (existingNote) {
+                                                    const match = existingNote.match(/Fita\s+(.+?)\s+em/);
+                                                    if (match && match[1] !== '2ª Cor') {
+                                                        customEdgeColor = match[1];
+                                                    }
                                                 }
+
+                                                // Determine effective edge material name for logic
+                                                const materialForGen = { 
+                                                    ...newM, 
+                                                    edgeColor: customEdgeColor || newM.edgeColor 
+                                                };
+
+                                                // Auto-Sync: Regenerate automated notes using the new material's definitions OR custom preserved color
+                                                // Detect Boleado from Original Name (UPDATED KEYWORDS)
+                                                const isBoleado = (p.originalName || '').toLowerCase().match(/bolead|abalu|arredond|curv/);
+                                                const systemNotes = generateAutomatedNotes(newEdges, { ...p.dimensions, thickness: newM.thickness }, materialForGen, p.detectedEdgeColor, !!isBoleado);
+                                                
+                                                // Preserve manual notes
+                                                const manualNotes = (p.notes || []).filter(n => !n.startsWith('Fita') && !n.startsWith('Fita:'));
+
+                                                return { 
+                                                    ...p, 
+                                                    materialName: newM.name, 
+                                                    dimensions: { ...p.dimensions, thickness: newM.thickness }, 
+                                                    edges: newEdges,
+                                                    notes: [...manualNotes, ...systemNotes] 
+                                                };
                                             }
-
-                                            // Determine effective edge material name for logic
-                                            const materialForGen = { 
-                                                ...newM, 
-                                                edgeColor: customEdgeColor || newM.edgeColor 
-                                            };
-
-                                            // Auto-Sync: Regenerate automated notes using the new material's definitions OR custom preserved color
-                                            // Detect Boleado from Original Name (UPDATED KEYWORDS)
-                                            const isBoleado = (p.originalName || '').toLowerCase().match(/bolead|abalu|arredond|curv/);
-                                            const systemNotes = generateAutomatedNotes(newEdges, { ...p.dimensions, thickness: newM.thickness }, materialForGen, p.detectedEdgeColor, !!isBoleado);
-                                            
-                                            // Preserve manual notes
-                                            const manualNotes = (p.notes || []).filter(n => !n.startsWith('Fita') && !n.startsWith('Fita:'));
-
-                                            return { 
-                                                ...p, 
-                                                materialName: newM.name, 
-                                                dimensions: { ...p.dimensions, thickness: newM.thickness }, 
-                                                edges: newEdges,
-                                                notes: [...manualNotes, ...systemNotes] 
-                                            };
-                                        }
-                                        return p;
-                                    }));
-                                }}
-                            />
-                            <PartTable 
-                                parts={parts} 
-                                availableMaterials={materials}
-                                availableEdgeBands={edgeRegistry} // Pass the edge registry to PartTable
-                                onUpdatePart={(id, f, v) => updatePartsWithHistory(prev => prev.map(p => {
-                                    if (p.id !== id) return p;
-                                    
-                                    let updatedPart = { ...p, [f]: v };
-                                    
-                                    // Detect Boleado from Original Name (UPDATED KEYWORDS)
-                                    const isBoleado = (p.originalName || '').toLowerCase().match(/bolead|abalu|arredond|curv/);
-
-                                    // Special logic for Material Change or Dimension Change -> Recalculate Notes
-                                    if (f === 'materialName') {
-                                        const mat = materials.find(m => m.name === v);
-                                        if (mat) {
-                                            // FIX: PRESERVE EXISTING EDGES UNLESS THE NEW MATERIAL EXPLICITLY FORBIDS THEM
-                                            const newEdges = (mat.hasEdgeBand === false) 
-                                                ? { long1: 'none', long2: 'none', short1: 'none', short2: 'none' } as EdgeBanding
-                                                : p.edges; // Mantém a configuração de fita atual
-                                            
-                                            updatedPart = { ...updatedPart, dimensions: { ...p.dimensions, thickness: mat.thickness }, edges: newEdges };
-                                            updatedPart.notes = generateAutomatedNotes(newEdges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
-                                        }
-                                    } else if (f === 'width' || f === 'height' || f === 'thickness') {
-                                        updatedPart = { ...p, dimensions: { ...p.dimensions, [f]: Number(v) } };
-                                        const mat = materials.find(m => m.name === p.materialName);
-                                        updatedPart.notes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
-                                    } else if (f === 'swapDimensions') {
-                                        const newDimensions = {
-                                            ...p.dimensions,
-                                            width: p.dimensions.height,
-                                            height: p.dimensions.width
-                                        };
-                                        const newEdges: EdgeBanding = {
-                                            long1: p.edges.short1,
-                                            long2: p.edges.short2,
-                                            short1: p.edges.long1,
-                                            short2: p.edges.long2
-                                        };
-                                        updatedPart = { ...p, dimensions: newDimensions, edges: newEdges };
-                                        const mat = materials.find(m => m.name === p.materialName);
-                                        updatedPart.notes = generateAutomatedNotes(newEdges, newDimensions, mat, p.detectedEdgeColor, !!isBoleado);
-                                    } else if (f === 'edges') {
-                                        const mat = materials.find(m => m.name === p.materialName);
+                                            return p;
+                                        }));
+                                    }}
+                                />
+                                <PartTable 
+                                    parts={parts} 
+                                    availableMaterials={materials}
+                                    availableEdgeBands={edgeRegistry} // Pass the edge registry to PartTable
+                                    onUpdatePart={(id, f, v) => updatePartsWithHistory(prev => prev.map(p => {
+                                        if (p.id !== id) return p;
                                         
-                                        const currentNotes = p.notes || [];
-                                        const manualNotes = currentNotes.filter(n => !n.startsWith('Fita'));
-                                        const newAutoNotes = generateAutomatedNotes(v, p.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                        let updatedPart = { ...p, [f]: v };
                                         
-                                        updatedPart.notes = [...manualNotes, ...newAutoNotes];
-                                    } else if (f === 'detectedEdgeColor') {
-                                        const mat = materials.find(m => m.name === p.materialName);
-                                        const currentNotes = p.notes || [];
-                                        const manualNotes = currentNotes.filter(n => !n.startsWith('Fita'));
-                                        // Pass the new edge color (v) to regenerate notes
-                                        const newAutoNotes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, v, !!isBoleado);
-                                        updatedPart.notes = [...manualNotes, ...newAutoNotes];
-                                    }
+                                        // Detect Boleado from Original Name (UPDATED KEYWORDS)
+                                        const isBoleado = (p.originalName || '').toLowerCase().match(/bolead|abalu|arredond|curv/);
 
-                                    return updatedPart;
-                                }))}
-                                onDeletePart={id => updatePartsWithHistory(prev => prev.filter(p => p.id !== id))}
-                                onMoveToHardware={handleMovePartToHardware}
-                                onDuplicatePart={id => {
-                                    const p = parts.find(p => p.id === id);
-                                    if(p) updatePartsWithHistory(prev => [...prev, { ...p, id: `copy_${Date.now()}`, displayId: (prev.length+1).toString(), finalName: `${p.finalName} (Cópia)`}]);
-                                }}
-                                onAddPart={handleAddManualPart}
-                            />
+                                        // Special logic for Material Change or Dimension Change -> Recalculate Notes
+                                        if (f === 'materialName') {
+                                            const mat = materials.find(m => m.name === v);
+                                            if (mat) {
+                                                // FIX: PRESERVE EXISTING EDGES UNLESS THE NEW MATERIAL EXPLICITLY FORBIDS THEM
+                                                const newEdges = (mat.hasEdgeBand === false) 
+                                                    ? { long1: 'none', long2: 'none', short1: 'none', short2: 'none' } as EdgeBanding
+                                                    : p.edges; // Mantém a configuração de fita atual
+                                                
+                                                updatedPart = { ...updatedPart, dimensions: { ...p.dimensions, thickness: mat.thickness }, edges: newEdges };
+                                                updatedPart.notes = generateAutomatedNotes(newEdges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                            }
+                                        } else if (f === 'width' || f === 'height' || f === 'thickness') {
+                                            updatedPart = { ...p, dimensions: { ...p.dimensions, [f]: Number(v) } };
+                                            const mat = materials.find(m => m.name === p.materialName);
+                                            updatedPart.notes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                        } else if (f === 'swapDimensions') {
+                                            const newDimensions = {
+                                                ...p.dimensions,
+                                                width: p.dimensions.height,
+                                                height: p.dimensions.width
+                                            };
+                                            const newEdges: EdgeBanding = {
+                                                long1: p.edges.short1,
+                                                long2: p.edges.short2,
+                                                short1: p.edges.long1,
+                                                short2: p.edges.long2
+                                            };
+                                            updatedPart = { ...p, dimensions: newDimensions, edges: newEdges };
+                                            const mat = materials.find(m => m.name === p.materialName);
+                                            updatedPart.notes = generateAutomatedNotes(newEdges, newDimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                        } else if (f === 'edges') {
+                                            const mat = materials.find(m => m.name === p.materialName);
+                                            
+                                            const currentNotes = p.notes || [];
+                                            const manualNotes = currentNotes.filter(n => !n.startsWith('Fita'));
+                                            const newAutoNotes = generateAutomatedNotes(v, p.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                            
+                                            updatedPart.notes = [...manualNotes, ...newAutoNotes];
+                                        } else if (f === 'detectedEdgeColor') {
+                                            const mat = materials.find(m => m.name === p.materialName);
+                                            const currentNotes = p.notes || [];
+                                            const manualNotes = currentNotes.filter(n => !n.startsWith('Fita'));
+                                            // Pass the new edge color (v) to regenerate notes
+                                            const newAutoNotes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, v, !!isBoleado);
+                                            updatedPart.notes = [...manualNotes, ...newAutoNotes];
+                                        }
+
+                                        return updatedPart;
+                                    }))}
+                                    onDeletePart={id => updatePartsWithHistory(prev => prev.filter(p => id !== id))}
+                                    onMoveToHardware={handleMovePartToHardware}
+                                    onDuplicatePart={id => {
+                                        const p = parts.find(p => p.id === id);
+                                        if(p) updatePartsWithHistory(prev => [...prev, { ...p, id: `copy_${Date.now()}`, displayId: (prev.length+1).toString(), finalName: `${p.finalName} (Cópia)`}]);
+                                    }}
+                                    onAddPart={handleAddManualPart}
+                                />
+                            </div>
+
+                            {/* SIDEBAR */}
+                            <div className="w-80 space-y-6 shrink-0 hidden xl:block">
+                                {/* RESUMO DO PROJETO */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumo do Projeto</h3>
+                                    <div className="space-y-3">
+                                        {[
+                                            { label: 'Total de Peças', value: `${parts.reduce((acc, p) => acc + (p.quantity || 1), 0)} peças` },
+                                            { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
+                                            { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
+                                            { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
+                                            { label: 'Aproveitamento Médio', value: '78,4 %' },
+                                        ].map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{item.label}</span>
+                                                <span className="text-xs font-black text-slate-700">{item.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* ARQUIVO 3D */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Arquivo 3D</h3>
+                                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-4 mb-4">
+                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
+                                            <CheckCircle2 size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-black text-emerald-700 uppercase leading-none">Modelo carregado</div>
+                                            <div className="text-[10px] text-emerald-600 font-medium mt-1 truncate w-40">Extração concluída com sucesso</div>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleOpenFile} className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center gap-2 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
+                                        <RefreshCw size={14} className="text-blue-600" />
+                                        Trocar Arquivo
+                                    </button>
+                                </div>
+
+                                {/* OBSERVAÇÕES */}
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Observações</h3>
+                                    <div className="bg-slate-50 p-4 rounded-xl text-[10px] text-slate-500 leading-relaxed font-medium">
+                                        Peças extraídas automaticamente do modelo 3D. Revise as medidas e os acabamentos antes de gerar o orçamento.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                      )}
-                  </div>
-              )}
+                    </div>
+                )}
+            </div>
+        )}
 
               {activeView === 'hardware' && (
                   <ExtractedHardwarePanel 
