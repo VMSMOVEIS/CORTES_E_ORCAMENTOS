@@ -36,7 +36,13 @@ export const PartsListView: React.FC<PartsListViewProps> = ({
     extractedHardware
 }) => {
     const [activeFilter, setActiveFilter] = useState('all');
+    const [materialFilter, setMaterialFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+
+    const materialsInProject = useMemo(() => {
+        const mats = new Set(parts.map(p => p.materialName));
+        return Array.from(mats).sort();
+    }, [parts]);
 
     // Categorization logic
     const categorizePart = (part: ProcessedPart) => {
@@ -94,11 +100,12 @@ export const PartsListView: React.FC<PartsListViewProps> = ({
     const filteredParts = useMemo(() => {
         return processedParts.filter(p => {
             const matchesFilter = activeFilter === 'all' || p.category === activeFilter;
+            const matchesMaterial = materialFilter === 'all' || p.materialName === materialFilter;
             const matchesSearch = p.finalName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                 p.displayId.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesFilter && matchesSearch;
+            return matchesFilter && matchesMaterial && matchesSearch;
         });
-    }, [processedParts, activeFilter, searchTerm]);
+    }, [processedParts, activeFilter, materialFilter, searchTerm]);
 
     // Groups for Table
     const groupedParts = useMemo(() => {
@@ -288,7 +295,22 @@ export const PartsListView: React.FC<PartsListViewProps> = ({
                         </button>
                     ))}
                 </div>
-                <div className="relative flex-1 max-w-sm mr-2">
+
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-4 py-1.5 ml-2 shadow-inner">
+                    <Filter size={12} className="text-slate-400" />
+                    <select 
+                        value={materialFilter}
+                        onChange={(e) => setMaterialFilter(e.target.value)}
+                        className="text-[10px] font-black uppercase tracking-tight text-slate-600 outline-none bg-transparent cursor-pointer"
+                    >
+                        <option value="all">Filtrar Material</option>
+                        {materialsInProject.map(mat => (
+                            <option key={mat} value={mat}>{mat}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="relative flex-1 max-w-sm mr-2 ml-auto">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                     <input 
                         type="text" 

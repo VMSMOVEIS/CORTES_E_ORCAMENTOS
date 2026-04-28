@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedPart, RegisteredMaterial, EdgeBanding, EdgeType, RegisteredEdgeBand } from '../types';
-import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight, Wrench, FileOutput, SlidersHorizontal, ChevronLeft, ChevronRight, RotateCw, Wind } from 'lucide-react';
+import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight, Wrench, FileOutput, SlidersHorizontal, ChevronLeft, ChevronRight, RotateCw, Wind, Filter } from 'lucide-react';
 
 interface PartTableProps {
   parts: ProcessedPart[];
@@ -80,10 +80,20 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type, show
 
 export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials, availableEdgeBands, onUpdatePart, onDeletePart, onMoveToHardware, onDuplicatePart, onAddPart }) => {
   const [activeTab, setActiveTab] = useState('Todas');
+  const [materialFilter, setMaterialFilter] = useState('all');
+
+  const materialsInProject = useMemo(() => {
+    const mats = new Set(parts.map(p => p.materialName));
+    return Array.from(mats).sort();
+  }, [parts]);
 
   const filteredParts = useMemo(() => {
-    if (activeTab === 'Todas') return parts;
     return parts.filter(p => {
+        const matchesMaterial = materialFilter === 'all' || p.materialName === materialFilter;
+        if (!matchesMaterial) return false;
+
+        if (activeTab === 'Todas') return true;
+        
         const name = (p.finalName || '').toLowerCase();
         const cat = (p.groupCategory || '').toLowerCase();
         
@@ -112,7 +122,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
         }
         return true;
     });
-  }, [parts, activeTab]);
+  }, [parts, activeTab, materialFilter]);
 
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -136,6 +146,19 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                 </button>
             ))}
             <div className="flex-1"></div>
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                <Filter size={12} className="text-slate-400" />
+                <select 
+                    value={materialFilter || 'all'}
+                    onChange={(e) => setMaterialFilter(e.target.value)}
+                    className="text-[10px] font-black uppercase text-slate-600 outline-none bg-transparent cursor-pointer"
+                >
+                    <option value="all">Materiais: Todos</option>
+                    {materialsInProject.map(mat => (
+                        <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                </select>
+            </div>
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase hover:bg-slate-50">
                 <FileOutput size={14}/> Exportar Planilha
             </button>
