@@ -36,6 +36,8 @@ export interface ProcessedPart extends RawPart {
   sourceFile: string;
   quantity: number;
   grainDirection: '0' | '90' | 'N/A';
+  hasGrain: boolean;
+  invertDimensions: boolean;
   groupCategory: string;
   notes: string[];
   originalData?: { id: string, position: Vector3 }[];
@@ -140,7 +142,13 @@ export interface ClientInfo {
     phone: string;
     email: string;
     address: string;
+    city?: string;
+    state?: string;
+    neighborhood?: string;
+    cpfCnpj?: string;
     notes: string;
+    responsible?: string;
+    projectTitle?: string;
 }
 
 export interface SavedBudget {
@@ -268,4 +276,57 @@ export interface OptimizationResult {
     thickness: number;
     orderId?: string;
   };
+}
+
+export interface RegisteredCollaborator {
+    id: string;
+    code: string;
+    name: string;
+    role: string;
+    sector: string;
+    type: string;
+    monthRate: number;
+    hourRate: number;
+    status: 'Ativo' | 'Inativo';
+}
+
+export interface RegisteredSupplier {
+    id: string;
+    code: string;
+    name: string;
+    category: string;
+    contact: string;
+    phone: string;
+}
+
+export interface RegisteredUnit {
+    id: string;
+    name: string;
+    category: string;
+}
+
+export interface RegisteredTax {
+    id: string;
+    code: string;
+    name: string;
+    value: number;
+    type: string;
+    status: 'Ativo' | 'Inativo';
+}
+
+export interface RegisteredIndirectCost {
+    id: string;
+    code: string;
+    name: string;
+    value: number;
+    category: 'Fixo' | 'Variável';
+}
+
+export interface RegisteredEquipment {
+    id: string;
+    code: string;
+    name: string;
+    brand: string;
+    power: string;
+    status: 'Operacional' | 'Manutenção' | 'Inativo';
 }

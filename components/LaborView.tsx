@@ -6,13 +6,14 @@ import {
     CheckCircle2, Percent, Ruler, Package, Award
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { ProcessedPart, OptimizationConfig } from '../types';
+import { ProcessedPart, OptimizationConfig, RegisteredCollaborator } from '../types';
 
 interface LaborViewProps {
     parts: ProcessedPart[];
     totalPartsCount: number;
     totalArea: number;
     globalConfig: OptimizationConfig;
+    collaborators: RegisteredCollaborator[];
     productionTimes: {
         corte: number;
         bordeamento: number;
@@ -27,33 +28,46 @@ export const LaborView: React.FC<LaborViewProps> = ({
     totalPartsCount, 
     totalArea, 
     globalConfig,
+    collaborators,
     productionTimes,
     subtotal
 }) => {
-    // 1. Employee Data (Based on image)
-    const employees = [
-        { name: 'Carlos Alberto', role: 'Marceneiro', monthlyCost: 3800, hours: 220 },
-        { name: 'João Pereira', role: 'Marceneiro', monthlyCost: 3500, hours: 220 },
-        { name: 'Pedro Henrique', role: 'Auxiliar', monthlyCost: 2400, hours: 220 },
-        { name: 'Roberto Silva', role: 'Oper. Seccionadora', monthlyCost: 3000, hours: 220 },
-        { name: 'Rafael Santos', role: 'Oper. Coladeira', monthlyCost: 3200, hours: 220 },
-    ].map(emp => ({
-        ...emp,
-        hourlyRate: emp.monthlyCost / emp.hours
+    // 1. Employee Data (Using collaborators from state)
+    const employees = (collaborators.length > 0 ? collaborators : [
+        { id: '1', code: 'COL-001', name: 'Carlos Alberto', role: 'Marceneiro', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 3800.00, hourRate: 17.27, status: 'Ativo' },
+        { id: '2', code: 'COL-002', name: 'João Pereira', role: 'Marceneiro', sector: 'Acabamento', type: 'Hora Produtiva', monthRate: 3500.00, hourRate: 15.91, status: 'Ativo' },
+        { id: '3', code: 'COL-003', name: 'Pedro Henrique', role: 'Auxiliar', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 2400.00, hourRate: 10.91, status: 'Ativo' },
+        { id: '4', code: 'COL-004', name: 'Roberto Silva', role: 'Oper. Seccionadora', sector: 'Corte', type: 'Hora Produtiva', monthRate: 3000.00, hourRate: 13.64, status: 'Ativo' },
+        { id: '5', code: 'COL-005', name: 'Rafael Santos', role: 'Oper. Coladeira', sector: 'Bordeamento', type: 'Hora Produtiva', monthRate: 3200.00, hourRate: 14.55, status: 'Ativo' },
+    ] as RegisteredCollaborator[]).map(emp => ({
+        name: emp.name,
+        role: emp.role,
+        sector: emp.sector,
+        monthlyCost: emp.monthRate,
+        hours: 220,
+        hourlyRate: emp.hourRate
     }));
 
     const totalMonthlyCost = employees.reduce((acc, e) => acc + e.monthlyCost, 0);
     const totalMonthlyHours = employees.reduce((acc, e) => acc + e.hours, 0);
     const avgHourlyRate = totalMonthlyCost / totalMonthlyHours;
 
-    // 2. Sector Costs (Mapping resource to hourly rate)
-    const getRateByName = (name: string) => employees.find(e => e.name === name)?.hourlyRate || avgHourlyRate;
+    // 2. Sector Costs (Mapping resource to hourly rate based on Sector)
+    const getResourceBySector = (sector: string) => {
+        const found = (collaborators || []).find(c => c.sector === sector && c.status === 'Ativo');
+        return found ? found.name : 'Não Alocado';
+    };
+
+    const getRateBySector = (sector: string) => {
+        const found = (collaborators || []).find(c => c.sector === sector && c.status === 'Ativo');
+        return found ? found.hourRate : avgHourlyRate;
+    };
 
     const sectorCosts = [
-        { id: 'corte', name: 'Corte', desc: 'Corte de chapas (seccionadora)', resource: 'Roberto Silva', rate: getRateByName('Roberto Silva') },
-        { id: 'bordeamento', name: 'Bordeamento', desc: 'Colagem da fita de borda', resource: 'Rafael Santos', rate: getRateByName('Rafael Santos') },
-        { id: 'montagem', name: 'Montagem', desc: 'Montagem e instalação', resource: 'Carlos Alberto', rate: getRateByName('Carlos Alberto') },
-        { id: 'acabamento', name: 'Acabamento', desc: 'Ajustes finais e acabamentos', resource: 'João Pereira', rate: getRateByName('João Pereira') },
+        { id: 'corte', name: 'Corte', desc: 'Corte de chapas (seccionadora)', resource: getResourceBySector('Corte'), rate: getRateBySector('Corte') },
+        { id: 'bordeamento', name: 'Bordeamento', desc: 'Colagem da fita de borda', resource: getResourceBySector('Bordeamento'), rate: getRateBySector('Bordeamento') },
+        { id: 'montagem', name: 'Montagem', desc: 'Montagem e instalação', resource: getResourceBySector('Montagem'), rate: getRateBySector('Montagem') },
+        { id: 'acabamento', name: 'Acabamento', desc: 'Ajustes finais e acabamentos', resource: getResourceBySector('Acabamento'), rate: getRateBySector('Acabamento') },
     ];
 
     // 3. Time Consumed (Production values)

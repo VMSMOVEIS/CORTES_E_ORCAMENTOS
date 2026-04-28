@@ -9,9 +9,10 @@ interface EdgeBandManagerProps {
   onUpdate: (band: RegisteredEdgeBand) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
+  isEmbedded?: boolean;
 }
 
-export const EdgeBandManager: React.FC<EdgeBandManagerProps> = ({ edgeBands, onAdd, onUpdate, onRemove, onClose }) => {
+export const EdgeBandManager: React.FC<EdgeBandManagerProps> = ({ edgeBands, onAdd, onUpdate, onRemove, onClose, isEmbedded }) => {
   const [newName, setNewName] = useState('');
   const [newThickness, setNewThickness] = useState(0.45);
   const [newCategory, setNewCategory] = useState('');
@@ -68,20 +69,21 @@ export const EdgeBandManager: React.FC<EdgeBandManagerProps> = ({ edgeBands, onA
       setNewProductionTime(0);
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-          <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-              <Disc className="text-emerald-600" size={20} />
-              Catálogo de Fitas de Borda
-          </h3>
+  const content = (
+    <div className={`${isEmbedded ? 'w-full' : 'bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in flex flex-col max-h-[85vh]'}`}>
+      <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <Disc className="text-emerald-600" size={20} />
+            Catálogo de Fitas de Borda
+        </h3>
+        {!isEmbedded && (
           <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
             <X size={20} />
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar">
+      <div className={`p-4 space-y-4 ${isEmbedded ? '' : 'overflow-y-auto custom-scrollbar'}`}>
           <div className={`space-y-4 p-4 rounded-lg border transition-colors ${editingId ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
             <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-bold uppercase text-slate-500">
@@ -224,6 +226,16 @@ export const EdgeBandManager: React.FC<EdgeBandManagerProps> = ({ edgeBands, onA
           </div>
         </div>
       </div>
+  );
+
+  return isEmbedded ? content : (
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {content}
     </div>
   );
 };

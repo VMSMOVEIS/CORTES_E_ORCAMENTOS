@@ -328,7 +328,12 @@ const runSimulation = (
 
         for (const piece of remainingPieces) {
             let allowRotation = config.allowRotation;
-            if (!config.ignoreGrain) {
+            
+            // NOVO: Se a peça tiver controle de veio, ela NÃO pode rotacionar 
+            // e seu comprimento deve ficar na horizontal (packer w)
+            if (piece.hasGrain) {
+                allowRotation = false;
+            } else if (!config.ignoreGrain) {
                 if (piece.grain === '0') allowRotation = false; 
                 if (piece.grain === '90') { 
                      const temp = piece.w; piece.w = piece.h; piece.h = temp;
@@ -443,8 +448,10 @@ export const generateCuttingPlan = (
   const initialUnplaced: ProcessedPart[] = [];
 
   parts.forEach(p => {
-    const pW = p.dimensions.width;
-    const pH = p.dimensions.height;
+    // APLICAR INVERSÃO DE DIMENSÕES SE SOLICITADO PELO USUÁRIO
+    const pW = p.invertDimensions ? p.dimensions.height : p.dimensions.width;
+    const pH = p.invertDimensions ? p.dimensions.width : p.dimensions.height;
+    
     const fitsNormal = pW <= workW && pH <= workH;
     const fitsRotated = pH <= workW && pW <= workH;
     const canFit = config.allowRotation ? (fitsNormal || fitsRotated) : fitsNormal;
@@ -458,8 +465,8 @@ export const generateCuttingPlan = (
     for (let i = 0; i < (p.quantity || 1); i++) {
       allPieces.push({
         w: pW, h: pH, id: p.id, displayId: p.displayId, name: p.finalName,
-        grain: p.grainDirection, group: p.groupCategory, original: p, edgeCode: code,
-        sourceFile: p.sourceFile
+        grain: p.grainDirection, hasGrain: p.hasGrain, group: p.groupCategory, 
+        original: p, edgeCode: code, sourceFile: p.sourceFile
       });
     }
   });

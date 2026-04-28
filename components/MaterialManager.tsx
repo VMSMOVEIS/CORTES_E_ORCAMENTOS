@@ -9,9 +9,10 @@ interface MaterialManagerProps {
   onUpdate: (mat: RegisteredMaterial) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
+  isEmbedded?: boolean;
 }
 
-export const MaterialManager: React.FC<MaterialManagerProps> = ({ materials, onAdd, onUpdate, onRemove, onClose }) => {
+export const MaterialManager: React.FC<MaterialManagerProps> = ({ materials, onAdd, onUpdate, onRemove, onClose, isEmbedded }) => {
   const [newName, setNewName] = useState('');
   const [newThickness, setNewThickness] = useState(15);
   const [newHasEdgeBand, setNewHasEdgeBand] = useState(true);
@@ -103,18 +104,19 @@ export const MaterialManager: React.FC<MaterialManagerProps> = ({ materials, onA
       setNewUnit('m2');
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
-        <div className="flex justify-between items-center p-3 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-          <h3 className="font-bold text-slate-800 text-sm">Gerenciar Materiais</h3>
+  const content = (
+    <div className={`${isEmbedded ? 'w-full' : 'bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-fade-in flex flex-col max-h-[85vh]'}`}>
+      <div className="flex justify-between items-center p-3 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+        <h3 className="font-bold text-slate-800 text-sm">Gerenciar Materiais</h3>
+        {!isEmbedded && (
           <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
             <X size={18} />
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="p-3 space-y-3 overflow-y-auto custom-scrollbar">
-          <div className={`space-y-2 p-3 rounded-lg border transition-colors ${editingId ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+      <div className={`p-3 space-y-3 ${isEmbedded ? '' : 'overflow-y-auto custom-scrollbar'}`}>
+        <div className={`space-y-2 p-3 rounded-lg border transition-colors ${editingId ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
             <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-bold uppercase text-slate-500">
                     {editingId ? 'Editando Material' : 'Adicionar Novo'}
@@ -352,6 +354,16 @@ export const MaterialManager: React.FC<MaterialManagerProps> = ({ materials, onA
           </div>
         </div>
       </div>
+  );
+
+  return isEmbedded ? content : (
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {content}
     </div>
   );
 };

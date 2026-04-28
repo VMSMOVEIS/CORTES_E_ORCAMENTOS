@@ -301,7 +301,9 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
             notes: notes, // Insere as notas geradas automaticamente
             displayId: "", 
             sourceFile: "", 
-            originalData: [{ id: part.id, position: part.position }]
+            originalData: [{ id: part.id, position: part.position }],
+            hasGrain: false,
+            invertDimensions: false
         };
         groupedParts.set(groupingKey, newPart);
     }

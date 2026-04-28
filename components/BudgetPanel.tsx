@@ -4,7 +4,11 @@ import {
     Save, Trash2, Eye, Plus, X, Calendar, Search, Copy, Printer, TrendingUp, Settings2, Scissors, Ruler,
     Home, Users, CheckCircle2, ChevronDown, ListFilter, Gauge, Monitor, HardHat, FileSpreadsheet, Settings, Building2
 } from 'lucide-react';
-import { ProcessedPart, ExtractedComponent, RegisteredMaterial, RegisteredHardware, RegisteredEdgeBand, OptimizationConfig, OptimizationResult, SavedBudget, ClientInfo } from '../types';
+import { 
+    ProcessedPart, ExtractedComponent, RegisteredMaterial, RegisteredHardware, 
+    RegisteredEdgeBand, OptimizationConfig, OptimizationResult, SavedBudget, 
+    ClientInfo, RegisteredCollaborator 
+} from '../types';
 import { BudgetPdfModal } from './BudgetPdfModal';
 import { FinancialSettings } from './FinancialSettings';
 import { CuttingSectorSettings } from './CuttingSectorSettings';
@@ -16,7 +20,6 @@ import { MaterialsView } from './MaterialsView';
 import { HardwareView } from './HardwareView';
 import { CostsView } from './CostsView';
 import { PartsListView } from './PartsListView';
-import { RegistrationsView } from './RegistrationsView';
 
 interface BudgetPanelProps {
     parts: ProcessedPart[];
@@ -28,6 +31,12 @@ interface BudgetPanelProps {
     setGlobalConfig: (config: OptimizationConfig) => void;
     optimizationResult: OptimizationResult | null;
     projectName: string;
+    onUpdateParts: (parts: ProcessedPart[]) => void;
+    onUpdateHardware: (hardware: ExtractedComponent[]) => void;
+    onUpdateMaterials?: (materials: RegisteredMaterial[]) => void;
+    onUpdateEdges?: (edges: RegisteredEdgeBand[]) => void;
+    onUpdateHardwareRegistry?: (hardware: RegisteredHardware[]) => void;
+    collaborators: RegisteredCollaborator[];
 }
 
 export const BudgetPanel: React.FC<BudgetPanelProps> = ({ 
@@ -36,12 +45,18 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
     materials, 
     hardwareRegistry, 
     edgeRegistry,
+    collaborators,
     globalConfig,
     setGlobalConfig,
     optimizationResult,
-    projectName
+    projectName,
+    onUpdateParts,
+    onUpdateHardware,
+    onUpdateMaterials,
+    onUpdateEdges,
+    onUpdateHardwareRegistry
 }) => {
-    const [activeTab, setActiveTab] = useState<'resumo' | 'items' | 'hardware' | 'materials' | 'labor' | 'engineering' | 'costs' | 'cadastros' | 'saved' | 'config'>('engineering');
+    const [activeTab, setActiveTab] = useState<'resumo' | 'cliente' | 'items' | 'materials' | 'labor' | 'engineering' | 'costs' | 'saved' | 'config'>('cliente');
     const [configSubTab, setConfigSubTab] = useState<'finance' | 'cutting' | 'edges' | 'assembly'>('finance');
     const [complexityFactor, setComplexityFactor] = useState(1.20);
     const [savedBudgets, setSavedBudgets] = useState<SavedBudget[]>(() => {
@@ -510,13 +525,12 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
 
     const BUDGET_TABS = [
         { id: 'resumo', label: 'Resumo', icon: Home },
-        { id: 'items', label: 'Itens / Peças', icon: FileSpreadsheet },
+        { id: 'cliente', label: 'Cliente / Projeto', icon: User },
+        { id: 'items', label: 'Extração', icon: FileSpreadsheet },
         { id: 'materials', label: 'Materiais', icon: Package },
-        { id: 'hardware', label: 'Ferragens', icon: Wrench },
         { id: 'labor', label: 'Mão de Obra', icon: Users },
         { id: 'engineering', label: 'Engenharia de Produção', icon: Monitor },
         { id: 'costs', label: 'Custos', icon: DollarSign },
-        { id: 'cadastros', label: 'Cadastros', icon: FileText },
         { id: 'saved', label: 'Orçamentos Salvos', icon: Save },
         { id: 'config', label: 'Configurações', icon: Settings }
     ] as const;
@@ -573,11 +587,193 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
                     {/* CONTENT AREA */}
-                    {activeTab === 'items' ? (
+                    {activeTab === 'cliente' ? (
+                        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in max-w-4xl mx-auto">
+                            <div className="bg-slate-900 p-6 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <Building2 size={24} />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-xl font-black tracking-tight uppercase">Registro do Projeto</h1>
+                                        <p className="text-blue-400 font-bold text-[9px] uppercase tracking-widest mt-0.5 italic">Detalhes do cliente e responsabilidades</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="p-8 space-y-8">
+                                {/* PROJETO */}
+                                <div>
+                                    <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4 flex items-center gap-2 italic">
+                                        <Monitor size={12} className="text-blue-500" /> Dados do Projeto
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Título do Projeto</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.projectTitle || ''}
+                                                onChange={e => setClientInfo(prev => ({ ...prev, projectTitle: e.target.value }))}
+                                                placeholder="Ex: Cozinha Planejada Residencial"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Responsável pelo Orçamento</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.responsible || ''}
+                                                onChange={e => setClientInfo(prev => ({ ...prev, responsible: e.target.value }))}
+                                                placeholder="Nome do consultor/vendedor"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CLIENTE */}
+                                <div>
+                                    <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4 flex items-center gap-2 italic">
+                                        <Users size={12} className="text-emerald-500" /> Dados do Cliente
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Nome Completo / Razão Social</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.name}
+                                                onChange={e => setClientInfo(prev => ({ ...prev, name: e.target.value }))}
+                                                placeholder="João da Silva"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">CPF / CNPJ</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.cpfCnpj || ''}
+                                                onChange={e => {
+                                                    let val = e.target.value.replace(/\D/g, '');
+                                                    if (val.length <= 11) {
+                                                        val = val.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+                                                    } else {
+                                                        val = val.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+                                                    }
+                                                    setClientInfo(prev => ({ ...prev, cpfCnpj: val.substring(0, 18) }));
+                                                }}
+                                                placeholder="000.000.000-00"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">WhatsApp / Telefone</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.phone}
+                                                onChange={e => {
+                                                    let val = e.target.value.replace(/\D/g, '');
+                                                    val = val.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+                                                    setClientInfo(prev => ({ ...prev, phone: val.substring(0, 15) }));
+                                                }}
+                                                placeholder="(00) 00000-0000"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">E-mail</label>
+                                            <input 
+                                                type="email" 
+                                                value={clientInfo.email}
+                                                onChange={e => setClientInfo(prev => ({ ...prev, email: e.target.value }))}
+                                                placeholder="cliente@email.com"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5 md:col-span-2">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Endereço</label>
+                                            <input 
+                                                type="text" 
+                                                value={clientInfo.address}
+                                                onChange={e => setClientInfo(prev => ({ ...prev, address: e.target.value }))}
+                                                placeholder="Rua, Número, Bloco..."
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-4 md:col-span-2">
+                                            <div className="space-y-0.5">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Bairro</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={clientInfo.neighborhood || ''}
+                                                    onChange={e => setClientInfo(prev => ({ ...prev, neighborhood: e.target.value }))}
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Cidade</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={clientInfo.city || ''}
+                                                    onChange={e => setClientInfo(prev => ({ ...prev, city: e.target.value }))}
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                                                />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Estado (UF)</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={clientInfo.state || ''}
+                                                    onChange={e => setClientInfo(prev => ({ ...prev, state: e.target.value }))}
+                                                    maxLength={2}
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner text-center uppercase"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* OBSERVAÇÕES */}
+                                <div>
+                                    <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4 flex items-center gap-2 italic">
+                                        <FileText size={12} className="text-amber-500" /> Observações do Orçamento
+                                    </h3>
+                                    <textarea 
+                                        rows={3}
+                                        value={clientInfo.notes}
+                                        onChange={e => setClientInfo(prev => ({ ...prev, notes: e.target.value }))}
+                                        placeholder="Informações adicionais, prazos especiais, condições de pagamento..."
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-6 flex justify-end gap-3 border-t border-slate-200">
+                                <button 
+                                    onClick={() => setActiveTab('resumo')}
+                                    className="px-6 py-2 bg-white border border-slate-200 rounded-lg font-bold text-xs text-slate-600 hover:bg-slate-100 transition-all shadow-sm active:scale-95"
+                                >
+                                    Voltar
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('items')}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+                                >
+                                    Avançar
+                                </button>
+                            </div>
+                        </div>
+                    ) : activeTab === 'items' ? (
                        <PartsListView 
                            parts={parts}
                            globalConfig={globalConfig}
                            materialCosts={materialCosts}
+                           hardwareCosts={hardwareCosts}
+                           totalHardwareCost={totalHardwareCost}
+                           totalPartsCount={totalPartsCount}
+                           subtotal={subtotal}
+                           onUpdateParts={onUpdateParts}
+                           onUpdateHardware={onUpdateHardware}
+                           extractedHardware={hardware}
                        />
                     ) : activeTab === 'engineering' ? (
                        <EngineeringView 
@@ -595,11 +791,12 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                             totalPartsCount={totalPartsCount}
                             totalArea={parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity) / 1000000, 0)}
                             globalConfig={globalConfig}
+                            collaborators={collaborators}
                             productionTimes={{
                                 corte: materialProdTimeMinutes,
                                 bordeamento: edgeBandingTimeMinutes,
                                 montagem: hardwareAssemblyTimeMinutes + partsAssemblyTimeMinutes,
-                                acabamento: 60 // Valor estimado conforme imagem
+                                acabamento: 60 
                             }}
                             subtotal={subtotal}
                         />
@@ -614,13 +811,12 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                             subtotal={subtotal}
                             optimizationResult={optimizationResult}
                             globalConfig={globalConfig}
-                        />
-                    ) : activeTab === 'hardware' ? (
-                        <HardwareView 
-                            hardwareCosts={hardwareCosts}
-                            totalHardwareCost={totalHardwareCost}
-                            totalPartsCount={totalPartsCount}
-                            subtotal={subtotal}
+                            materials={materials}
+                            edgeRegistry={edgeRegistry}
+                            hardwareRegistry={hardwareRegistry}
+                            onUpdateMaterials={onUpdateMaterials}
+                            onUpdateEdges={onUpdateEdges}
+                            onUpdateHardwareRegistry={onUpdateHardwareRegistry}
                         />
                     ) : activeTab === 'costs' ? (
                         <CostsView 
@@ -640,9 +836,7 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                                 acabamento: 60
                             }}
                         />
-                    ) : activeTab === 'cadastros' ? (
-                    <RegistrationsView />
-                ) : activeTab === 'saved' ? (
+                    ) : activeTab === 'saved' ? (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
                             {savedBudgets.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-96 text-slate-400">
@@ -737,11 +931,11 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                         <div className="space-y-4">
                             <div>
                                 <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Cliente</span>
-                                <span className="text-sm font-bold text-slate-700">{clientInfo.name || 'João da Silva'}</span>
+                                <span className="text-sm font-bold text-slate-700">{clientInfo.name || '-'}</span>
                             </div>
                             <div>
                                 <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Projeto</span>
-                                <span className="text-sm font-bold text-slate-700 font-mono italic">{projectName || 'Cozinha Planejada'}</span>
+                                <span className="text-sm font-bold text-slate-700 font-mono italic">{clientInfo.projectTitle || projectName || '-'}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -752,8 +946,8 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
                                     </div>
                                 </div>
                                 <div>
-                                    <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Vendedor</span>
-                                    <span className="text-xs font-bold text-slate-700">Bruno Carvalho</span>
+                                    <span className="block text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Responsável</span>
+                                    <span className="text-xs font-bold text-slate-700">{clientInfo.responsible || '-'}</span>
                                 </div>
                             </div>
                         </div>
@@ -799,10 +993,35 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
 
                      <div className="pt-4 mt-4 border-t border-slate-100">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Observações</h4>
-                         <div className="bg-blue-50/50 border border-dotted border-blue-200 rounded-xl p-4 h-32">
+                         <div className="bg-blue-50/50 border border-dotted border-blue-200 rounded-xl p-4 h-32 mb-6">
                             <p className="text-[10px] text-blue-600 font-medium leading-relaxed italic">
                                 Projeto com nichos, portas com pistão e gavetas com corrediças metálicas pesadas...
                             </p>
+                         </div>
+
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Top 5 Peças (Área)</h4>
+                         <div className="space-y-2">
+                             {parts
+                                .map(p => ({
+                                    ...p,
+                                    area: (p.dimensions.width * p.dimensions.height) / 1000000
+                                }))
+                                .sort((a, b) => b.area - a.area)
+                                .slice(0, 5)
+                                .map((piece, i) => (
+                                    <div key={i} className="flex items-center gap-3 p-2 bg-slate-50/50 rounded-xl border border-slate-100">
+                                        <div className="w-6 h-6 bg-white rounded-lg flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-200">
+                                            {i + 1}
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <span className="block text-[9px] font-black text-slate-700 truncate">{piece.finalName}</span>
+                                            <span className="block text-[7px] text-slate-400 font-bold uppercase">{piece.materialName}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="block text-[9px] font-black text-slate-800">{piece.area.toFixed(2)} m²</span>
+                                        </div>
+                                    </div>
+                                ))}
                          </div>
                      </div>
                 </div>

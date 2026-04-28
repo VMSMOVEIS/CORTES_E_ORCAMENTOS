@@ -9,9 +9,10 @@ interface HardwareManagerProps {
   onRemove: (id: string) => void;
   onUpdate: (hw: RegisteredHardware) => void;
   onClose: () => void;
+  isEmbedded?: boolean;
 }
 
-export const HardwareManager: React.FC<HardwareManagerProps> = ({ hardwareList, onAdd, onRemove, onUpdate, onClose }) => {
+export const HardwareManager: React.FC<HardwareManagerProps> = ({ hardwareList, onAdd, onRemove, onUpdate, onClose, isEmbedded }) => {
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState('Outros');
   const [newPrice, setNewPrice] = useState<number>(0);
@@ -106,20 +107,21 @@ export const HardwareManager: React.FC<HardwareManagerProps> = ({ hardwareList, 
       h.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[85vh]">
-        
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
-          <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-              <ImageIcon className="text-blue-600" size={20} />
-              Catálogo de Ferragens & Acessórios
-          </h3>
+  const content = (
+    <div className={`${isEmbedded ? 'w-full' : 'bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[85vh]'}`}>
+      
+      {/* Header */}
+      <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
+        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+            <ImageIcon className="text-blue-600" size={20} />
+            Catálogo de Ferragens & Acessórios
+        </h3>
+        {!isEmbedded && (
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
             <X size={24} />
           </button>
-        </div>
+        )}
+      </div>
 
         <div className="flex flex-col md:flex-row h-full overflow-hidden">
             
@@ -297,6 +299,16 @@ export const HardwareManager: React.FC<HardwareManagerProps> = ({ hardwareList, 
 
         </div>
       </div>
+  );
+
+  return isEmbedded ? content : (
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      {content}
     </div>
   );
 };

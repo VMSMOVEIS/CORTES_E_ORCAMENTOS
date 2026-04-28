@@ -19,8 +19,14 @@ import { ManualLayoutEditor } from './components/ManualLayoutEditor';
 import { DropZone } from './components/DropZone'; 
 import { parse3DFile } from './services/geometryEngine';
 import { analyzePartsLocally, generateAutomatedNotes } from './services/localAnalyzer'; 
-import { ProcessedPart, ExtractedComponent, ProcessingStatus, RegisteredMaterial, RegisteredHardware, RegisteredEdgeBand, OptimizationResult, OptimizationConfig, EdgeBanding, EdgeType } from './types';
+import { 
+  ProcessedPart, ExtractedComponent, ProcessingStatus, RegisteredMaterial, 
+  RegisteredHardware, RegisteredEdgeBand, OptimizationResult, OptimizationConfig, 
+  EdgeBanding, EdgeType, RegisteredCollaborator, RegisteredSupplier, 
+  RegisteredUnit, RegisteredTax, RegisteredIndirectCost, RegisteredEquipment 
+} from './types';
 import { BudgetPanel } from './components/BudgetPanel';
+import { RegistrationsView } from './components/RegistrationsView';
 import { 
   Menu, Save, SlidersHorizontal, LayoutList, 
   LayoutGrid, Move, Printer, FilePlus, FolderOpen, 
@@ -38,10 +44,16 @@ const STORAGE_KEYS = {
     HARDWARE: 'cutlist_hardware_pro_v4',
     EDGE_BANDS: 'cutlist_edgebands_pro_v4', 
     CONFIG: 'cutlist_config_pro_v4', 
-    LAST_UPDATE: 'cutlist_last_sync_pro'
+    LAST_UPDATE: 'cutlist_last_sync_pro',
+    COLLABORATORS: 'cutlist_collaborators_v1',
+    SUPPLIERS: 'cutlist_suppliers_v1',
+    UNITS: 'cutlist_units_v1',
+    TAXES: 'cutlist_taxes_v1',
+    INDIRECT_COSTS: 'cutlist_indirect_costs_v1',
+    EQUIPMENT: 'cutlist_equipment_v1'
 };
 
-type ViewMode = 'home' | 'parts' | 'hardware' | 'results' | 'editor' | 'assembly' | 'report' | 'print' | 'config' | 'export' | 'budget';
+type ViewMode = 'home' | 'parts' | 'hardware' | 'results' | 'editor' | 'assembly' | 'report' | 'print' | 'config' | 'export' | 'budget' | 'registrations';
 
 const App: React.FC = () => {
   // --- STATE ---
@@ -202,6 +214,8 @@ const App: React.FC = () => {
   // Estado para armazenar o material padrão selecionado na criação do projeto
   const [activeDefaultMaterial, setActiveDefaultMaterial] = useState<RegisteredMaterial | null>(null);
 
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+
   // --- STATS ---
   const projectStats = useMemo(() => {
       let doors = 0;
@@ -219,6 +233,57 @@ const App: React.FC = () => {
       const saved = localStorage.getItem(STORAGE_KEYS.HARDWARE);
       if (saved) return JSON.parse(saved);
       return DEFAULT_HARDWARE_LIST;
+  });
+
+  const [collaborators, setCollaborators] = useState<RegisteredCollaborator[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.COLLABORATORS);
+      return saved ? JSON.parse(saved) : [
+          { id: '1', code: 'COL-001', name: 'Carlos Alberto', role: 'Marceneiro', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 3800.00, hourRate: 17.27, status: 'Ativo' },
+          { id: '2', code: 'COL-002', name: 'João Pereira', role: 'Marceneiro', sector: 'Acabamento', type: 'Hora Produtiva', monthRate: 3500.00, hourRate: 15.91, status: 'Ativo' },
+          { id: '3', code: 'COL-003', name: 'Ricardo Santos', role: 'Auxiliar', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 2200.00, hourRate: 10.00, status: 'Ativo' },
+          { id: '4', code: 'COL-004', name: 'Roberto Silva', role: 'Oper. Seccionadora', sector: 'Corte', type: 'Hora Produtiva', monthRate: 3000.00, hourRate: 13.64, status: 'Ativo' },
+          { id: '5', code: 'COL-005', name: 'Rafael Santos', role: 'Oper. Coladeira', sector: 'Bordeamento', type: 'Hora Produtiva', monthRate: 3200.00, hourRate: 14.55, status: 'Ativo' },
+      ];
+  });
+
+  const [suppliers, setSuppliers] = useState<RegisteredSupplier[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.SUPPLIERS);
+      return saved ? JSON.parse(saved) : [
+          { id: '1', code: 'FOR-001', name: 'Leo Madeiras', category: 'Chapas/Acessórios', contact: 'Leo Silva', phone: '(11) 98888-7777' },
+          { id: '2', code: 'FOR-002', name: 'Gasometro Madeiras', category: 'Chapas/Maquinas', contact: 'Ana Clara', phone: '(11) 97777-6666' },
+      ];
+  });
+
+  const [units, setUnits] = useState<RegisteredUnit[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.UNITS);
+      return saved ? JSON.parse(saved) : [
+          { id: 'UN', name: 'Unidade', category: 'Contagem' },
+          { id: 'M2', name: 'Metro Quadrado', category: 'Área' },
+          { id: 'ML', name: 'Metro Linear', category: 'Comprimento' },
+      ];
+  });
+
+  const [taxes, setTaxes] = useState<RegisteredTax[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.TAXES);
+      return saved ? JSON.parse(saved) : [
+          { id: '1', code: 'IMP-001', name: 'Simples Nacional', value: 6.5, type: 'Faturamento', status: 'Ativo' },
+      ];
+  });
+
+  const [indirectCosts, setIndirectCosts] = useState<RegisteredIndirectCost[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.INDIRECT_COSTS);
+      return saved ? JSON.parse(saved) : [
+          { id: '1', code: 'CI-001', name: 'Aluguel Galpão', value: 2500.00, category: 'Fixo' },
+          { id: '2', code: 'CI-002', name: 'Energia Elétrica', value: 450.00, category: 'Variável' },
+      ];
+  });
+
+  const [equipment, setEquipment] = useState<RegisteredEquipment[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.EQUIPMENT);
+      return saved ? JSON.parse(saved) : [
+          { id: '1', code: 'EQP-001', name: 'Seccionadora Vertical', brand: 'Inmes', power: '5HP', status: 'Operacional' },
+          { id: '2', code: 'EQP-002', name: 'Coladeira de Bordas', brand: 'Frama', power: '3Kw', status: 'Operacional' },
+      ];
   });
 
   // Seed default hardware if missing (for existing users)
@@ -252,6 +317,12 @@ const App: React.FC = () => {
   useEffect(() => localStorage.setItem(STORAGE_KEYS.MATERIALS, JSON.stringify(materials)), [materials]);
   useEffect(() => localStorage.setItem(STORAGE_KEYS.HARDWARE, JSON.stringify(hardwareRegistry)), [hardwareRegistry]);
   useEffect(() => localStorage.setItem(STORAGE_KEYS.EDGE_BANDS, JSON.stringify(edgeRegistry)), [edgeRegistry]); // Salva fitas
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.COLLABORATORS, JSON.stringify(collaborators)), [collaborators]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers)), [suppliers]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(units)), [units]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.TAXES, JSON.stringify(taxes)), [taxes]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.INDIRECT_COSTS, JSON.stringify(indirectCosts)), [indirectCosts]);
+  useEffect(() => localStorage.setItem(STORAGE_KEYS.EQUIPMENT, JSON.stringify(equipment)), [equipment]);
   // Salva config sempre que mudar
   useEffect(() => localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(globalConfig)), [globalConfig]);
 
@@ -519,7 +590,9 @@ const App: React.FC = () => {
           grainDirection: 'N/A',
           groupCategory: 'Peça',
           notes: [],
-          sourceFile: 'Manual'
+          sourceFile: 'Manual',
+          hasGrain: false,
+          invertDimensions: false
       };
       
       // Use history wrapper
@@ -592,7 +665,9 @@ const App: React.FC = () => {
                     grainDirection: 'N/A',
                     groupCategory: 'Peça',
                     notes: [],
-                    sourceFile: h.sourceFile
+                    sourceFile: h.sourceFile,
+                    hasGrain: false,
+                    invertDimensions: false
                 };
             });
 
@@ -655,7 +730,9 @@ const App: React.FC = () => {
         grainDirection: 'N/A',
         groupCategory: 'Peça',
         notes: [],
-        sourceFile: hardwareToMove.sourceFile
+        sourceFile: hardwareToMove.sourceFile,
+        hasGrain: false,
+        invertDimensions: false
     };
 
     updatePartsWithHistory(prev => [...prev, newPart]);
@@ -698,7 +775,8 @@ const App: React.FC = () => {
           <SidebarBtn icon={Menu} label="Menu" active={isMenuOpen} onClick={() => setIsMenuOpen(!isMenuOpen)} />
           
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <SidebarBtn icon={LayoutList} label="Peças" active={activeView === 'parts'} onClick={() => setActiveView('parts')} />
+            <SidebarBtn icon={LayoutList} label="Extração" active={activeView === 'parts'} onClick={() => setActiveView('parts')} />
+            <SidebarBtn icon={ClipboardList} label="Cadastros" active={activeView === 'registrations'} onClick={() => setActiveView('registrations')} />
             <SidebarBtn icon={Calculator} label="Orçamento" active={activeView === 'budget'} onClick={() => setActiveView('budget')} />
             
             {/* Projeto de Cortes e Montagem Group */}
@@ -718,7 +796,6 @@ const App: React.FC = () => {
 
                 {isCutProjectExpanded && (
                     <div className="bg-slate-100 animate-in slide-in-from-top-2 duration-200">
-                        <SidebarBtn icon={Wrench} label="Ferragens" active={activeView === 'hardware'} onClick={() => setActiveView('hardware')} />
                         <SidebarBtn icon={LayoutGrid} label="Resultados" active={activeView === 'results'} onClick={() => setActiveView('results')} />
                         <SidebarBtn icon={FileText} label="Relatório" active={activeView === 'report'} onClick={() => setActiveView('report')} />
                         <SidebarBtn icon={Move} label="Editor" active={activeView === 'editor'} onClick={() => setActiveView('editor')} />
@@ -887,7 +964,7 @@ const App: React.FC = () => {
                         ) : (
                             <div className="flex flex-col gap-6">
                                 <div className="flex gap-6 items-start w-full">
-                                    <div className="flex-1 space-y-6">
+                                    <div className="flex-1 space-y-6 overflow-hidden">
                                 {/* NEW HEADER */}
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <div>
@@ -1063,6 +1140,35 @@ const App: React.FC = () => {
                                             updatedPart = { ...p, dimensions: newDimensions, edges: newEdges };
                                             const mat = materials.find(m => m.name === p.materialName);
                                             updatedPart.notes = generateAutomatedNotes(newEdges, newDimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                        } else if (f === 'invertDimensions') {
+                                            // NOVO: Quando inverter dimensões, fazemos o swap real de W/H e fitas
+                                            // para que apareça instantaneamente na lista conforme solicitado
+                                            const newDimensions = {
+                                                ...p.dimensions,
+                                                width: p.dimensions.height,
+                                                height: p.dimensions.width
+                                            };
+                                            const newEdges: EdgeBanding = {
+                                                long1: p.edges.short1,
+                                                long2: p.edges.short2,
+                                                short1: p.edges.long1,
+                                                short2: p.edges.long2
+                                            };
+                                            updatedPart = { 
+                                                ...p, 
+                                                dimensions: newDimensions, 
+                                                edges: newEdges,
+                                                invertDimensions: v // Mantém o estado boolean para controle visual
+                                            };
+                                            const mat = materials.find(m => m.name === p.materialName);
+                                            updatedPart.notes = generateAutomatedNotes(newEdges, newDimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                        } else if (f === 'hasGrain') {
+                                            // Sincroniza o boolean hasGrain com o campo grainDirection ('0' = Horizontal, 'N/A' = Livre)
+                                            updatedPart = { 
+                                                ...p, 
+                                                hasGrain: v,
+                                                grainDirection: v ? '0' : 'N/A'
+                                            };
                                         } else if (f === 'edges') {
                                             const mat = materials.find(m => m.name === p.materialName);
                                             
@@ -1090,80 +1196,118 @@ const App: React.FC = () => {
                                     }}
                                     onAddPart={handleAddManualPart}
                                 />
+
+                                {/* INTEGRATED HARDWARE SECTION */}
+                                <div className="mt-10 pt-10 border-t border-slate-200">
+                                    <ExtractedHardwarePanel 
+                                        hardware={extractedHardware} 
+                                        hardwareRegistry={hardwareRegistry}
+                                        onDelete={(id) => setExtractedHardware(prev => prev.filter(h => h.id !== id))} 
+                                        onMoveToParts={handleMoveHardwareToParts}
+                                        onAdd={(hw) => setExtractedHardware(prev => [...prev, hw])}
+                                    />
+                                </div>
                             </div>
 
-                            {/* SIDEBAR */}
-                            <div className="w-80 space-y-6 shrink-0 hidden xl:block">
-                                {/* RESUMO DO PROJETO */}
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resumo do Projeto</h3>
-                                    <div className="space-y-3">
-                                        {[
-                                            { label: 'Total de Peças', value: `${parts.reduce((acc, p) => acc + (p.quantity || 1), 0)} peças` },
-                                            { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
-                                            { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
-                                            { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
-                                            ...(() => {
-                                                const edgeTotals: Record<string, number> = {
-                                                    'Fita Sólida': 0,
-                                                    'Fita Pontilhada': 0,
-                                                    '2ª Cor': 0
-                                                };
-                                                parts.forEach(p => {
-                                                    const qty = p.quantity || 1;
-                                                    const { width, height } = p.dimensions;
-                                                    const { long1, long2, short1, short2 } = p.edges;
-                                                    [long1, long2].forEach(edge => {
-                                                        if (edge === 'solid') edgeTotals['Fita Sólida'] += (height * qty);
-                                                        if (edge === 'dashed') edgeTotals['Fita Pontilhada'] += (height * qty);
-                                                        if (edge === 'colored') edgeTotals['2ª Cor'] += (height * qty);
-                                                    });
-                                                    [short1, short2].forEach(edge => {
-                                                        if (edge === 'solid') edgeTotals['Fita Sólida'] += (width * qty);
-                                                        if (edge === 'dashed') edgeTotals['Fita Pontilhada'] += (width * qty);
-                                                        if (edge === 'colored') edgeTotals['2ª Cor'] += (width * qty);
-                                                    });
-                                                });
-                                                return Object.entries(edgeTotals)
-                                                    .filter(([_, mm]) => mm > 0)
-                                                    .map(([l, mm]) => ({ label: l, value: (mm / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m' }));
-                                            })(),
-                                            { label: 'Aproveitamento Médio', value: '78,4 %' },
-                                        ].map((item, i) => (
-                                            <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{item.label}</span>
-                                                <span className="text-xs font-black text-slate-700">{item.value}</span>
+                                    {/* SIDEBAR */}
+                                    {isRightSidebarOpen ? (
+                                        <div className="w-80 space-y-6 shrink-0 hidden xl:block animate-in slide-in-from-right-10 duration-300">
+                                            <div className="flex justify-between items-center bg-white px-4 py-2 rounded-t-2xl border-x border-t border-slate-200">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Painel de Resumo</span>
+                                                <button onClick={() => setIsRightSidebarOpen(false)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400">
+                                                    <ArrowRight size={14} />
+                                                </button>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                            <div className="space-y-6">
+                                                {/* RESUMO DO PROJETO */}
+                                                <div className="bg-white p-6 rounded-b-2xl border border-slate-200 shadow-sm mt-[-1px]">
+                                                    <div className="space-y-3">
+                                                        {[
+                                                            { label: 'Total de Peças', value: `${parts.reduce((acc, p) => acc + (p.quantity || 1), 0)} peças` },
+                                                            { label: 'Área Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.quantity), 0) / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²` },
+                                                            { label: 'Volume Total', value: `${(parts.reduce((acc, p) => acc + (p.dimensions.width * p.dimensions.height * p.dimensions.thickness * p.quantity), 0) / 1000000000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} m³` },
+                                                            { label: 'Materiais Utilizados', value: new Set(parts.map(p => p.materialName)).size },
+                                                            ...(() => {
+                                                                const edgeTotals: Record<string, number> = {};
+                                                                parts.forEach(p => {
+                                                                    const qty = p.quantity || 1;
+                                                                    const { width, height } = p.dimensions;
+                                                                    const { long1, long2, short1, short2 } = p.edges;
+                                                                    
+                                                                    const getEdgeName = (type: string) => {
+                                                                        if (type === 'none') return null;
+                                                                        if (p.detectedEdgeColor) return p.detectedEdgeColor;
+                                                                        if (type === 'solid') return 'Sólida';
+                                                                        if (type === 'dashed') return 'Pontilhada';
+                                                                        if (type === 'colored') return '2ª Cor';
+                                                                        return 'Fita';
+                                                                    };
 
-                                {/* ARQUIVO 3D */}
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Arquivo 3D</h3>
-                                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-4 mb-4">
-                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
-                                            <CheckCircle2 size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-black text-emerald-700 uppercase leading-none">Modelo carregado</div>
-                                            <div className="text-[10px] text-emerald-600 font-medium mt-1 truncate w-40">Extração concluída com sucesso</div>
-                                        </div>
-                                    </div>
-                                    <button onClick={handleOpenFile} className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center gap-2 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
-                                        <RefreshCw size={14} className="text-blue-600" />
-                                        Trocar Arquivo
-                                    </button>
-                                </div>
+                                                                    [long1, long2].forEach(edge => {
+                                                                        const name = getEdgeName(edge);
+                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (height * qty);
+                                                                    });
+                                                                    [short1, short2].forEach(edge => {
+                                                                        const name = getEdgeName(edge);
+                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (width * qty);
+                                                                    });
+                                                                });
+                                                                return Object.entries(edgeTotals)
+                                                                    .filter(([_, mm]) => mm > 0)
+                                                                    .sort((a, b) => b[1] - a[1])
+                                                                    .map(([l, mm]) => ({ label: `Fita ${l}`, value: (mm / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m' }));
+                                                            })(),
+                                                            { label: 'Aproveitamento Médio', value: '78,4 %' },
+                                                        ].map((item, i) => (
+                                                            <div key={i} className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{item.label}</span>
+                                                                <span className="text-xs font-black text-slate-700">{item.value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
 
-                                {/* OBSERVAÇÕES */}
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Observações</h3>
-                                    <div className="bg-slate-50 p-4 rounded-xl text-[10px] text-slate-500 leading-relaxed font-medium">
-                                        Peças extraídas automaticamente do modelo 3D. Revise as medidas e os acabamentos antes de gerar o orçamento.
-                                    </div>
-                                </div>
-                            </div>
+                                                {/* ARQUIVO 3D */}
+                                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Arquivo 3D</h3>
+                                                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center gap-4 mb-4">
+                                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shrink-0">
+                                                            <CheckCircle2 size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-black text-emerald-700 uppercase leading-none">Modelo carregado</div>
+                                                            <div className="text-[10px] text-emerald-600 font-medium mt-1 truncate w-40">Extração concluída com sucesso</div>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={handleOpenFile} className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center justify-center gap-2 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
+                                                        <RefreshCw size={14} className="text-blue-600" />
+                                                        Trocar Arquivo
+                                                    </button>
+                                                </div>
+
+                                                {/* OBSERVAÇÕES */}
+                                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Observações</h3>
+                                                    <div className="bg-slate-50 p-4 rounded-xl text-[10px] text-slate-500 leading-relaxed font-medium">
+                                                        Peças extraídas automaticamente do modelo 3D. Revise as medidas e os acabamentos antes de gerar o orçamento.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="w-12 h-full shrink-0 hidden xl:flex flex-col items-center py-6 border-l border-slate-200 bg-white animate-in fade-in duration-300">
+                                            <button 
+                                                onClick={() => setIsRightSidebarOpen(true)}
+                                                className="p-2 bg-blue-50 text-blue-600 rounded-lg shadow-sm border border-blue-100 hover:bg-blue-100 transition-all mb-4"
+                                                title="Abrir Resumo"
+                                            >
+                                                <ArrowDown className="-rotate-90" size={18} />
+                                            </button>
+                                            <div className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Resumo do Projeto
+                                            </div>
+                                        </div>
+                                    )}
                         </div>
                     </div>
                 )}
@@ -1235,10 +1379,42 @@ const App: React.FC = () => {
                         materials={materials}
                         hardwareRegistry={hardwareRegistry}
                         edgeRegistry={edgeRegistry}
+                        collaborators={collaborators}
                         globalConfig={globalConfig}
                         setGlobalConfig={setGlobalConfig}
                         optimizationResult={optimizationResult}
                         projectName={projectName}
+                        onUpdateParts={setParts}
+                        onUpdateHardware={setExtractedHardware}
+                        onUpdateMaterials={setMaterials}
+                        onUpdateEdges={setEdgeRegistry}
+                        onUpdateHardwareRegistry={setHardwareRegistry}
+                      />
+                  </div>
+              )}
+
+              {activeView === 'registrations' && (
+                  <div className="min-h-full pb-20">
+                      <RegistrationsView 
+                        materials={materials}
+                        edgeRegistry={edgeRegistry}
+                        hardwareRegistry={hardwareRegistry}
+                        collaborators={collaborators}
+                        suppliers={suppliers}
+                        units={units}
+                        taxes={taxes}
+                        indirectCosts={indirectCosts}
+                        equipment={equipment}
+                        onUpdateMaterials={setMaterials}
+                        onUpdateEdges={setEdgeRegistry}
+                        onUpdateHardware={setHardwareRegistry}
+                        onUpdateCollaborators={setCollaborators}
+                        onUpdateSuppliers={setSuppliers}
+                        onUpdateUnits={setUnits}
+                        onUpdateTaxes={setTaxes}
+                        onUpdateIndirectCosts={setIndirectCosts}
+                        onUpdateEquipment={setEquipment}
+                        onClose={() => setActiveView('home')}
                       />
                   </div>
               )}

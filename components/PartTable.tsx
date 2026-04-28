@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedPart, RegisteredMaterial, EdgeBanding, EdgeType, RegisteredEdgeBand } from '../types';
-import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight, Wrench, FileOutput, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Copy, PlusCircle, Palette, ArrowLeftRight, Wrench, FileOutput, SlidersHorizontal, ChevronLeft, ChevronRight, RotateCw, Wind } from 'lucide-react';
 
 interface PartTableProps {
   parts: ProcessedPart[];
@@ -91,7 +91,10 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
             return ['lateral', 'base', 'tampo', 'rodape', 'rodapé', 'travessa', 'divisoria', 'divisória', 'montante', 'ripa'].some(k => name.includes(k) || cat.includes(k));
         }
         if (activeTab === 'portas') {
-            return ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k));
+            return ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k)) && !name.includes('gaveta');
+        }
+        if (activeTab === 'gavetas') {
+            return ['gaveta'].some(k => name.includes(k) || cat.includes(k));
         }
         if (activeTab === 'prateleiras') {
             return ['prateleira'].some(k => name.includes(k) || cat.includes(k));
@@ -101,10 +104,11 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
         }
         if (activeTab === 'diversos') {
             const isStructural = ['lateral', 'base', 'tampo', 'rodape', 'rodapé', 'travessa', 'divisoria', 'divisória', 'montante', 'ripa'].some(k => name.includes(k) || cat.includes(k));
-            const isPorta = ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k));
+            const isPorta = ['porta', 'frente'].some(k => name.includes(k) || cat.includes(k)) && !name.includes('gaveta');
+            const isGaveta = ['gaveta'].some(k => name.includes(k) || cat.includes(k));
             const isPrateleira = ['prateleira'].some(k => name.includes(k) || cat.includes(k));
             const isFundo = ['fundo'].some(k => name.includes(k) || cat.includes(k));
-            return !isStructural && !isPorta && !isPrateleira && !isFundo;
+            return !isStructural && !isPorta && !isGaveta && !isPrateleira && !isFundo;
         }
         return true;
     });
@@ -118,6 +122,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                 { id: 'Todas', label: 'Todas as Peças' },
                 { id: 'estruturas', label: 'Estruturas' },
                 { id: 'portas', label: 'Portas' },
+                { id: 'gavetas', label: 'Gavetas' },
                 { id: 'prateleiras', label: 'Prateleiras' },
                 { id: 'fundos', label: 'Fundos' },
                 { id: 'diversos', label: 'Diversos' }
@@ -139,181 +144,210 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
             </button>
         </div>
 
-        <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-x-auto custom-scrollbar">
-        <table className="w-full text-left text-sm text-slate-700 table-fixed border-collapse">
-            <thead className="bg-[#f8f9fb] text-[10px] uppercase text-slate-400 font-black leading-tight border-b border-slate-200">
-            <tr>
-                <th className="px-3 py-4 w-10 text-center border-r border-slate-100">#</th>
-                <th className="px-3 py-4 w-24 border-r border-slate-100">Projeto</th>
-                <th className="px-3 py-4 w-32 border-r border-slate-100">Material</th>
-                <th className="px-3 py-4 w-44 border-r border-slate-100">Nome da Peça</th> 
-                <th className="px-2 py-4 w-16 text-right border-r border-slate-100">Comp.</th>
-                <th className="px-2 py-4 w-16 text-right border-r border-slate-100">Larg.</th>
-                <th className="px-2 py-4 w-12 text-center border-r border-slate-100">Esp.</th>
-                <th className="px-3 py-4 w-28 text-center border-r border-slate-100">Comp. (C)</th>
-                <th className="px-3 py-4 w-16 text-center border-r border-slate-100">Larg. (L)</th>
-                <th className="px-2 py-4 w-14 text-center border-r border-slate-100">Qtd.</th>
-                <th className="px-3 py-4 w-32 border-r border-slate-100">Cores / Fitas</th>
-                <th className="px-3 py-4 w-32 border-r border-slate-100">Obs.</th> 
-                <th className="px-3 py-4 w-20 text-center">Ações</th>
-            </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
-            {filteredParts.map((part) => {
-                const hasColoredEdge = 
-                    part.edges?.long1 === 'colored' || 
-                    part.edges?.long2 === 'colored' || 
-                    part.edges?.short1 === 'colored' || 
-                    part.edges?.short2 === 'colored';
-
-                const mat = availableMaterials.find(m => m.name === part.materialName);
-
-                return (
-                <tr key={part.id} className="hover:bg-blue-50/20 transition-colors group">
-                <td className="px-3 py-4 text-center font-bold text-slate-300 text-xs border-r border-slate-50">
-                    {part.displayId}
-                </td>
-
-                <td className="px-3 py-4 border-r border-slate-50">
-                    <input 
-                        type="text" 
-                        value={part.sourceFile}
-                        onChange={(e) => onUpdatePart(part.id, 'sourceFile', e.target.value)}
-                        className="bg-transparent text-xs font-black text-blue-600 uppercase outline-none truncate w-full"
-                    />
-                </td>
-
-                <td className="px-3 py-4 border-r border-slate-50">
-                    <select 
-                        value={part.materialName}
-                        onChange={(e) => {
-                            onUpdatePart(part.id, 'materialName', e.target.value);
-                            const found = availableMaterials.find(m => m.name === e.target.value);
-                            if (found) {
-                                onUpdatePart(part.id, 'thickness', found.thickness);
-                            }
-                        }}
-                        className="w-full bg-slate-50 border border-slate-100 rounded px-2 py-1 text-[11px] font-bold text-slate-700 outline-none truncate cursor-pointer hover:border-blue-300"
-                    >
-                        {!availableMaterials.some(m => m.name === part.materialName) && (
-                            <option value={part.materialName}>{part.materialName}</option>
-                        )}
-                        {availableMaterials.map(mat => (
-                            <option key={mat.id} value={mat.name}>{mat.name}</option>
-                        ))}
-                    </select>
-                </td>
-                
-                <td className="px-3 py-4 border-r border-slate-50">
-                    <input 
-                        type="text" 
-                        value={part.finalName}
-                        onChange={(e) => onUpdatePart(part.id, 'finalName', e.target.value)}
-                        className="bg-transparent text-sm font-black text-slate-800 outline-none w-full"
-                    />
-                </td>
-
-                <td className="px-2 py-4 text-right border-r border-slate-50">
-                    <input 
-                        type="number"
-                        value={part.dimensions.height}
-                        onChange={(e) => onUpdatePart(part.id, 'height', Number(e.target.value))}
-                        className="w-full text-right text-slate-500 font-bold bg-transparent outline-none text-xs"
-                    />
-                </td>
-                
-                <td className="px-2 py-4 text-right border-r border-slate-50">
-                    <input 
-                        type="number"
-                        value={part.dimensions.width}
-                        onChange={(e) => onUpdatePart(part.id, 'width', Number(e.target.value))}
-                        className="w-full text-right text-slate-500 font-bold bg-transparent outline-none text-xs"
-                    />
-                </td>
-                
-                <td className="px-2 py-4 text-center border-r border-slate-50">
-                    <input 
-                        type="number"
-                        value={part.dimensions.thickness}
-                        onChange={(e) => onUpdatePart(part.id, 'thickness', e.target.value)}
-                        className="w-full text-center font-black text-amber-500 bg-transparent outline-none text-xs"
-                    />
-                </td>
-                
-                {/* EDGE SELECTORS */}
-                <td className="px-3 py-2 border-r border-slate-50">
-                    <EdgeSelector 
-                        edges={part.edges} 
-                        onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
-                        type="comp"
-                    />
-                </td>
-                <td className="px-3 py-2 border-r border-slate-50">
-                    <EdgeSelector 
-                        edges={part.edges} 
-                        onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
-                        type="larg"
-                        showLabels={false}
-                    />
-                </td>
-                
-                <td className="px-2 py-4 text-center border-r border-slate-50">
-                    <input 
-                        type="number" 
-                        min="1"
-                        value={part.quantity}
-                        onChange={(e) => onUpdatePart(part.id, 'quantity', parseInt(e.target.value) || 0)}
-                        className="bg-blue-50/50 border border-blue-100 rounded-lg w-10 py-2 text-center text-blue-700 font-black outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                    />
-                </td>
-
-                <td className="px-3 py-4 border-r border-slate-50">
-                    <select
-                        value={part.detectedEdgeColor || ''}
-                        onChange={(e) => onUpdatePart(part.id, 'detectedEdgeColor', e.target.value)}
-                        className={`w-full bg-slate-50 border border-slate-100 rounded px-2 py-1.5 text-[11px] font-bold text-slate-600 outline-none truncate hover:border-blue-300 ${!hasColoredEdge ? 'opacity-40' : ''}`}
-                    >
-                        <option value="">{mat?.name?.includes('Branco') ? 'Branco' : 'Veneer'}</option>
-                        {availableEdgeBands.map(eb => (
-                            <option key={eb.id} value={eb.name}>{eb.name}</option>
-                        ))}
-                    </select>
-                </td>
-
-                <td className="px-3 py-4 border-r border-slate-50">
-                    <input 
-                        type="text"
-                        value={part.notes?.filter(n => !n.startsWith('Fita')).join(', ') || ''}
-                        onChange={(e) => {
-                            const otherNotes = part.notes?.filter(n => n.startsWith('Fita')) || [];
-                            const userNote = e.target.value;
-                            onUpdatePart(part.id, 'notes', userNote ? [...otherNotes, userNote] : otherNotes);
-                        }}
-                        placeholder="Observações..."
-                        className="w-full bg-transparent text-[10px] font-medium text-slate-500 italic outline-none border-b border-transparent focus:border-blue-300 transition-all"
-                    />
-                </td>
-
-                <td className="px-3 py-4">
-                    <div className="flex items-center justify-center gap-2">
-                        <button 
-                            onClick={() => onDuplicatePart(part.id)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100"
-                        >
-                            <Copy size={16} />
-                        </button>
-                        <button 
-                            onClick={() => onDeletePart(part.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
-                </td>
+        <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-sm text-slate-700 table-fixed border-collapse min-w-[1000px]">
+                <thead className="bg-[#f8f9fb] text-[8px] uppercase text-slate-400 font-black leading-tight border-b border-slate-200">
+                <tr>
+                    <th className="px-2 py-4 w-[35px] text-center border-r border-slate-100">#</th>
+                    <th className="px-2 py-4 w-[70px] border-r border-slate-100">Projeto</th>
+                    <th className="px-2 py-4 w-[90px] border-r border-slate-100">Material</th>
+                    <th className="px-2 py-4 w-[120px] border-r border-slate-100">Nome da Peça</th> 
+                    <th className="px-1.5 py-4 w-[50px] text-right border-r border-slate-100">Comp.</th>
+                    <th className="px-1.5 py-4 w-[50px] text-right border-r border-slate-100">Larg.</th>
+                    <th className="px-1 py-4 w-[35px] text-center border-r border-slate-100">Esp.</th>
+                    <th className="px-1 py-4 w-[35px] text-center border-r border-slate-100">Inv.</th>
+                    <th className="px-1 py-4 w-[35px] text-center border-r border-slate-100">Veio</th>
+                    <th className="px-1 py-4 w-[75px] text-center border-r border-slate-100">Fitas (C)</th>
+                    <th className="px-1 py-4 w-[45px] text-center border-r border-slate-100">Fitas (L)</th>
+                    <th className="px-1 py-4 w-[35px] text-center border-r border-slate-100">Qtd.</th>
+                    <th className="px-2 py-4 w-[90px] border-r border-slate-100">2ª Cor</th>
+                    <th className="px-2 py-4 w-[80px] border-r border-slate-100">Obs.</th> 
+                    <th className="px-2 py-4 w-[75px] text-center">Ações</th>
                 </tr>
-            )})}
-            </tbody>
-        </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-100">
+                {filteredParts.map((part) => {
+                    const hasColoredEdge = 
+                        part.edges?.long1 === 'colored' || 
+                        part.edges?.long2 === 'colored' || 
+                        part.edges?.short1 === 'colored' || 
+                        part.edges?.short2 === 'colored';
+
+                    const mat = availableMaterials.find(m => m.name === part.materialName);
+
+                    return (
+                    <tr key={part.id} className="hover:bg-blue-50/20 transition-colors group">
+                    <td className="px-2 py-4 text-center font-bold text-slate-300 text-[10px] border-r border-slate-50">
+                        {part.displayId}
+                    </td>
+
+                    <td className="px-2 py-4 border-r border-slate-50">
+                        <input 
+                            type="text" 
+                            value={part.sourceFile}
+                            onChange={(e) => onUpdatePart(part.id, 'sourceFile', e.target.value)}
+                            className="bg-transparent text-[10px] font-black text-blue-600 uppercase outline-none truncate w-full"
+                        />
+                    </td>
+
+                    <td className="px-2 py-4 border-r border-slate-50">
+                        <select 
+                            value={part.materialName}
+                            onChange={(e) => {
+                                onUpdatePart(part.id, 'materialName', e.target.value);
+                                const found = availableMaterials.find(m => m.name === e.target.value);
+                                if (found) {
+                                    onUpdatePart(part.id, 'thickness', found.thickness);
+                                }
+                            }}
+                            className="w-full bg-slate-50 border border-slate-100 rounded px-1.5 py-1 text-[10px] font-bold text-slate-700 outline-none truncate cursor-pointer hover:border-blue-300"
+                        >
+                            {!availableMaterials.some(m => m.name === part.materialName) && (
+                                <option value={part.materialName}>{part.materialName}</option>
+                            )}
+                            {availableMaterials.map(mat => (
+                                <option key={mat.id} value={mat.name}>{mat.name}</option>
+                            ))}
+                        </select>
+                    </td>
+                    
+                    <td className="px-2 py-4 border-r border-slate-50">
+                        <input 
+                            type="text" 
+                            value={part.finalName}
+                            onChange={(e) => onUpdatePart(part.id, 'finalName', e.target.value)}
+                            className="bg-transparent text-[11px] font-black text-slate-800 outline-none w-full truncate"
+                        />
+                    </td>
+
+                    <td className="px-1.5 py-4 text-right border-r border-slate-50">
+                        <input 
+                            type="number"
+                            value={part.dimensions.width}
+                            onChange={(e) => onUpdatePart(part.id, 'width', Number(e.target.value))}
+                            className="w-full text-right text-slate-500 font-bold bg-transparent outline-none text-[10px]"
+                        />
+                    </td>
+                    
+                    <td className="px-1.5 py-4 text-right border-r border-slate-50">
+                        <input 
+                            type="number"
+                            value={part.dimensions.height}
+                            onChange={(e) => onUpdatePart(part.id, 'height', Number(e.target.value))}
+                            className="w-full text-right text-slate-500 font-bold bg-transparent outline-none text-[10px]"
+                        />
+                    </td>
+                    
+                    <td className="px-1 py-4 text-center border-r border-slate-50">
+                        <input 
+                            type="number"
+                            value={part.dimensions.thickness}
+                            onChange={(e) => onUpdatePart(part.id, 'thickness', e.target.value)}
+                            className="w-full text-center font-black text-amber-500 bg-transparent outline-none text-[10px]"
+                        />
+                    </td>
+
+                    <td className="px-1 py-4 text-center border-r border-slate-50">
+                        <button 
+                            onClick={() => onUpdatePart(part.id, 'invertDimensions', !part.invertDimensions)}
+                            className={`p-1 rounded-lg transition-all ${part.invertDimensions ? 'bg-blue-100 text-blue-600' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'}`}
+                            title="Inverter Comprimento x Largura"
+                        >
+                            <RotateCw size={12} />
+                        </button>
+                    </td>
+
+                    <td className="px-1 py-4 text-center border-r border-slate-50">
+                        <button 
+                            onClick={() => onUpdatePart(part.id, 'hasGrain', !part.hasGrain)}
+                            className={`p-1 rounded-lg transition-all ${part.hasGrain ? 'bg-orange-100 text-orange-600' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100'}`}
+                            title="Respeitar Veio (Comprimento horizontal)"
+                        >
+                            <Wind size={12} />
+                        </button>
+                    </td>
+                    
+                    {/* EDGE SELECTORS */}
+                    <td className="px-1 py-2 border-r border-slate-50">
+                        <EdgeSelector 
+                            edges={part.edges} 
+                            onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
+                            type="comp"
+                        />
+                    </td>
+                    <td className="px-1 py-2 border-r border-slate-50">
+                        <EdgeSelector 
+                            edges={part.edges} 
+                            onUpdate={(newEdges) => onUpdatePart(part.id, 'edges', newEdges)}
+                            type="larg"
+                            showLabels={false}
+                        />
+                    </td>
+                    
+                    <td className="px-1 py-4 text-center border-r border-slate-50">
+                        <input 
+                            type="number" 
+                            min="1"
+                            value={part.quantity}
+                            onChange={(e) => onUpdatePart(part.id, 'quantity', parseInt(e.target.value) || 0)}
+                            className="bg-blue-50/50 border border-blue-100 rounded-lg w-8 py-1.5 text-center text-blue-700 font-black outline-none focus:ring-2 focus:ring-blue-500 transition-all text-xs"
+                        />
+                    </td>
+
+                    <td className="px-2 py-4 border-r border-slate-50">
+                        <select
+                            value={part.detectedEdgeColor || ''}
+                            onChange={(e) => onUpdatePart(part.id, 'detectedEdgeColor', e.target.value)}
+                            className={`w-full bg-slate-50 border border-slate-100 rounded px-1.5 py-1 text-[9px] font-bold text-slate-600 outline-none truncate hover:border-blue-300 ${!hasColoredEdge ? 'opacity-40' : ''}`}
+                        >
+                            <option value="">{mat?.name?.includes('Branco') ? 'Branco' : 'Veneer'}</option>
+                            {availableEdgeBands.map(eb => (
+                                <option key={eb.id} value={eb.name}>{eb.name}</option>
+                            ))}
+                        </select>
+                    </td>
+
+                    <td className="px-2 py-4 border-r border-slate-50">
+                        <input 
+                            type="text"
+                            value={part.notes?.filter(n => !n.startsWith('Fita')).join(', ') || ''}
+                            onChange={(e) => {
+                                const otherNotes = part.notes?.filter(n => n.startsWith('Fita')) || [];
+                                const userNote = e.target.value;
+                                onUpdatePart(part.id, 'notes', userNote ? [...otherNotes, userNote] : otherNotes);
+                            }}
+                            placeholder="Obs..."
+                            className="w-full bg-transparent text-[9px] font-medium text-slate-500 italic outline-none border-b border-transparent focus:border-blue-300 transition-all"
+                        />
+                    </td>
+
+                    <td className="px-2 py-4">
+                        <div className="flex items-center justify-center gap-1">
+                            <button 
+                                onClick={() => onMoveToHardware(part.id)}
+                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all border border-transparent hover:border-emerald-100 group/move relative"
+                                title="Mover para Extração de Ferragens"
+                            >
+                                <Wrench size={14} />
+                            </button>
+                            <button 
+                                onClick={() => onDuplicatePart(part.id)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100"
+                            >
+                                <Copy size={14} />
+                            </button>
+                            <button 
+                                onClick={() => onDeletePart(part.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    </td>
+                    </tr>
+                )})}
+                </tbody>
+            </table>
         </div>
         
         <div className="flex justify-between items-center py-4 bg-[#f8f9fb] px-6 rounded-2xl border border-slate-200">
