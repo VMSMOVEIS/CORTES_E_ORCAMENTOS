@@ -119,32 +119,37 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
     const activeResult = result;
 
     const groupedGlobalParts = useMemo(() => {
-        const grouped: Record<string, { part: ProcessedPart, count: number, isUnplaced: boolean }[]> = {};
+        if (!activeResult) return {};
         
-        parts.forEach(p => {
-            const project = p.sourceFile || projectName || "Geral";
-            if (!grouped[project]) grouped[project] = [];
-            
-            // Check if this part is actually unplaced in the current result
-            let isUnplaced = false;
-            if (activeResult) {
-                const placedUuids = activeResult.sheets.flatMap(s => s.parts.map(pp => pp.partId));
-                if (!placedUuids.includes(p.id)) {
-                    isUnplaced = true;
-                }
-            }
+        const grouped: Record<string, { part: ProcessedPart; count: number; isUnplaced: boolean }[]> = {};
+        
+        // Obter todas as peças colocadas em todas as chapas
+        const allPlacedParts = activeResult.sheets.flatMap(s => s.parts);
+        
+        // Agrupar peças colocadas por ID
+        const placedCountMap = new Map<string, number>();
+        allPlacedParts.forEach(pp => {
+            placedCountMap.set(pp.partId, (placedCountMap.get(pp.partId) || 0) + 1);
+        });
 
-            const existing = grouped[project].find(x => x.part.id === p.id && x.isUnplaced === isUnplaced);
-            if (existing) {
-                existing.count += p.quantity;
-            } else {
+        // Filtrar as peças originais que têm pelo menos uma unidade colocada
+        parts.forEach(p => {
+            const placedCount = placedCountMap.get(p.id) || 0;
+            
+            // Se a peça saiu no plano de cortes (pelo menos uma unidade)
+            if (placedCount > 0) {
+                const project = p.sourceFile || projectName || "Geral";
+                if (!grouped[project]) grouped[project] = [];
+                
+                // Adicionamos a peça ao grupo com a contagem real de peças alocadas
                 grouped[project].push({ 
                     part: p, 
-                    count: p.quantity, 
-                    isUnplaced 
+                    count: placedCount, 
+                    isUnplaced: false 
                 });
             }
         });
+
         return grouped;
     }, [parts, activeResult, projectName]);
 
@@ -154,12 +159,11 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
         
         sortedProjects.forEach(proj => {
             rows.push({ type: 'header', project: proj });
-            const items = groupedGlobalParts[proj].sort((a,b) => {
-                if (a.isUnplaced !== b.isUnplaced) return a.isUnplaced ? 1 : -1;
+            const items = groupedGlobalParts[proj].sort((a, b) => {
                 return parseInt(a.part.displayId) - parseInt(b.part.displayId);
             });
+            
             items.forEach(item => {
-                // Map ProcessedPart to PlacedPart format for row
                 const p = item.part;
                 const mockPlaced: PlacedPart = {
                     uuid: p.id,
@@ -178,7 +182,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                     notes: p.notes,
                     originalDimensions: { width: p.dimensions.width, height: p.dimensions.height }
                 };
-                rows.push({ type: 'part', part: mockPlaced, count: item.count, project: proj, isUnplaced: item.isUnplaced });
+                rows.push({ type: 'part', part: mockPlaced, count: item.count, project: proj, isUnplaced: false });
             });
         });
 
