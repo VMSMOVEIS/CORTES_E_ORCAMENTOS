@@ -327,14 +327,16 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
         parts.forEach(p => {
             const name = (p.finalName || '').toLowerCase();
             const orig = (p.originalName || '').toLowerCase();
+            const cat = (p.groupCategory || '').toLowerCase();
             const qty = p.quantity || 0;
+            const combined = `${name} ${orig} ${cat}`;
             
-            // Lógica para Portas: Procura por "porta" excluindo falsos positivos se necessário
-            if (name.includes('porta') || orig.includes('porta')) {
+            // Lógica para Portas
+            if (combined.includes('porta') || combined.includes('basculante')) {
                 doors += qty;
             } 
-            // Lógica para Gavetas: Procura por "gaveta" ou "frente de"
-            else if (name.includes('gaveta') || orig.includes('gaveta') || name.includes('frente de') || orig.includes('frente de')) {
+            // Lógica para Gavetas
+            else if (combined.includes('gaveta') || combined.includes('gav.') || combined.includes('gav')) {
                 drawers += qty;
             }
         });
@@ -526,7 +528,7 @@ export const BudgetPanel: React.FC<BudgetPanelProps> = ({
     const BUDGET_TABS = [
         { id: 'resumo', label: 'Resumo', icon: Home },
         { id: 'cliente', label: 'Cliente / Projeto', icon: User },
-        { id: 'items', label: 'Extração', icon: FileSpreadsheet },
+        { id: 'items', label: 'Peças', icon: FileSpreadsheet },
         { id: 'materials', label: 'Materiais', icon: Package },
         { id: 'labor', label: 'Mão de Obra', icon: Users },
         { id: 'engineering', label: 'Engenharia de Produção', icon: Monitor },

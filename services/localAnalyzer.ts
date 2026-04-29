@@ -1,5 +1,5 @@
 
-import { RawPart, ProcessedPart, RegisteredMaterial, EdgeBanding, ExtractedComponent } from "../types";
+import { RawPart, ProcessedPart, RegisteredMaterial, EdgeBanding, ExtractedComponent, RegisteredEdgeBand } from "../types";
 
 /**
  * Gera notas automáticas baseadas nas fitas de borda (Espessura e Cor)
@@ -19,19 +19,19 @@ export const generateAutomatedNotes = (
         const dashedDims: number[] = [];
         const coloredDims: number[] = [];
 
-        // Arestas longas correspondem à Altura (Height) no padrão local
-        if (edges.long1 === 'dashed') dashedDims.push(rH);
-        if (edges.long1 === 'colored') coloredDims.push(rH);
+        // Arestas longas correspondem ao Comprimento (Width) no padrão local (sempre >= Height)
+        if (edges.long1 === 'dashed') dashedDims.push(rW);
+        if (edges.long1 === 'colored') coloredDims.push(rW);
         
-        if (edges.long2 === 'dashed') dashedDims.push(rH);
-        if (edges.long2 === 'colored') coloredDims.push(rH);
+        if (edges.long2 === 'dashed') dashedDims.push(rW);
+        if (edges.long2 === 'colored') coloredDims.push(rW);
         
-        // Arestas curtas correspondem à Largura (Width)
-        if (edges.short1 === 'dashed') dashedDims.push(rW);
-        if (edges.short1 === 'colored') coloredDims.push(rW);
+        // Arestas curtas correspondem à Largura (Height)
+        if (edges.short1 === 'dashed') dashedDims.push(rH);
+        if (edges.short1 === 'colored') coloredDims.push(rH);
         
-        if (edges.short2 === 'dashed') dashedDims.push(rW);
-        if (edges.short2 === 'colored') coloredDims.push(rW);
+        if (edges.short2 === 'dashed') dashedDims.push(rH);
+        if (edges.short2 === 'colored') coloredDims.push(rH);
 
         // Nota para Fita Larga (Tracejada) / Boleada
         if (dashedDims.length > 0) {
@@ -144,7 +144,12 @@ const HARDWARE_KEYWORDS = [
  * Classifica peças 3D baseando-se em padrões industriais de marcenaria.
  * Agora separa Componentes (Hardware) de Painéis (MDF).
  */
-export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0, swapDimensions: boolean = false): { panels: ProcessedPart[], hardware: ExtractedComponent[] } => {
+export const analyzePartsLocally = (
+    rawParts: RawPart[], 
+    startIndex: number = 0, 
+    swapDimensions: boolean = false,
+    availableEdgeBands: RegisteredEdgeBand[] = []
+): { panels: ProcessedPart[], hardware: ExtractedComponent[] } => {
   const groupedParts = new Map<string, ProcessedPart>();
   const groupedHardware = new Map<string, ExtractedComponent>();
   
@@ -217,7 +222,15 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
     }
 
     // --- 2. PROCESSAMENTO DE PAINEL (MDF/VIDRO) ---
-    const { width, height, thickness } = part.dimensions;
+    let { width, height, thickness } = part.dimensions;
+
+    // NOVO: As peças com tamanho maior sempre vão ficar no comprimento (width)
+    if (width < height) {
+        const temp = width;
+        width = height;
+        height = temp;
+    }
+    
     const matName = part.materialName;
     
     // Normaliza dimensões (Arredondamento) para agrupar 499.9mm com 500mm
@@ -230,13 +243,30 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
     
     // IMPORTANTE: Incluir detectedEdgeColor na chave de agrupamento.
     // Se duas peças são iguais mas uma tem fita "Azul" e outra "Vermelha", devem ser linhas separadas.
-    const colorKey = part.detectedEdgeColor ? part.detectedEdgeColor.trim().toLowerCase() : 'default';
+    // NOVO: Busca fita compatível no cadastro baseada no nome do material
+    let defaultColor = '';
+    if (availableEdgeBands.length > 0) {
+        const matLower = matName.toLowerCase();
+        // Tenta encontrar uma fita cujo nome esteja contido no nome do material ou vice-versa
+        const matchingEdge = availableEdgeBands.find(eb => {
+            const ebName = eb.name.toLowerCase();
+            return matLower.includes(ebName) || ebName.includes(matLower);
+        });
+        
+        if (matchingEdge) {
+            defaultColor = matchingEdge.name;
+        }
+    }
+    
+    // Se não encontrou fita, mas a peça já veio com cor do 3D, preserva. 
+    // Caso contrário, deixa vazio para o usuário escolher ou assume padrão.
+    const colorKey = part.detectedEdgeColor ? part.detectedEdgeColor.trim() : defaultColor;
 
     // Detectar boleado pelo nome original para a nota (COM PALAVRAS-CHAVE EXPANDIDAS)
     const isBoleado = ['bolead', 'abalu', 'arredond', 'curv'].some(k => rawNameLower.includes(k));
 
     // Gera notas iniciais usando a cor detectada (se houver)
-    const notes = generateAutomatedNotes(part.edges, part.dimensions, undefined, part.detectedEdgeColor, isBoleado);
+    const notes = generateAutomatedNotes(part.edges, { width: rW, height: rH, thickness: rT }, undefined, colorKey, isBoleado);
 
     const cleanedName = cleanPartName(part.originalName);
     const lowerCleaned = cleanedName.toLowerCase();
@@ -247,27 +277,38 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
     const area = (rW * rH) / 1000000;
 
     // 1. Prioridade por Nome (Baseado no pedido do usuário)
-    if (lowerCleaned.includes('porta')) {
-        geoCategory = "Porta";
-    } else if (lowerCleaned.includes('gaveta') || lowerCleaned.includes('gavetão')) {
+    // Gavetas: "gaveta" ou "gav"
+    if (lowerCleaned.includes('gaveta') || lowerCleaned.includes('gav.' ) || lowerCleaned === 'gav') {
         geoCategory = "Gaveta";
-    } else if (lowerCleaned.includes('frente')) {
+    } 
+    // Prateleiras: "prateleira", "prat" ou "prat."
+    else if (lowerCleaned.includes('prateleira') || lowerCleaned.includes('prat.') || lowerCleaned === 'prat') {
+        geoCategory = "Prateleira";
+    }
+    // Portas: "portas", "porta", "porta de correr", "porta basculante"
+    else if (lowerCleaned.includes('porta') || lowerCleaned.includes('basculante')) {
+        geoCategory = "Porta";
+    }
+    // Estrutura: "divisoria", "div", "base", "topo", "lateral", "laterais", "lat", "saias", "vistas"
+    else if (
+        lowerCleaned.includes('divisoria') || lowerCleaned.includes('div.') || lowerCleaned === 'div' ||
+        lowerCleaned.includes('base') || lowerCleaned.includes('topo') || 
+        lowerCleaned.includes('lateral') || lowerCleaned.includes('laterais') || lowerCleaned === 'lat' || lowerCleaned.includes('lat.') ||
+        lowerCleaned.includes('saia') || lowerCleaned.includes('vista')
+    ) {
+        geoCategory = "Estrutura";
+    }
+    else if (lowerCleaned.includes('frente')) {
         geoCategory = "Frente Gaveta";
     }
     // 2. Classificação Geométrica (Fallback)
     else if (rT <= 7) {
         geoCategory = "Fundo";
-    } else if (aspect > 1.8) {
-        geoCategory = "Lateral";
-    } else if (aspect < 0.55) {
-        if (area > 0.8) geoCategory = "Tampo";
-        else geoCategory = "Base/Prateleira";
-    } else if (aspect >= 0.8 && aspect <= 1.25) {
-        if (area > 0.15) geoCategory = "Porta";
-        else geoCategory = "Frente Gaveta";
-    } else {
-        geoCategory = "Divisória";
-    }
+    } else if (rT >= 15 && aspect > 1.8) {
+        geoCategory = "Estrutura"; // Laterais longas
+    } 
+    
+    // ... manter o resto do motor de agrupamento ...
 
     // Identifica se o nome original é genérico ou lixo gerado por software
     const isGenericName = !part.originalName || 
@@ -294,6 +335,7 @@ export const analyzePartsLocally = (rawParts: RawPart[], startIndex: number = 0,
         const newPart: ProcessedPart = {
             ...part,
             dimensions: { width: rW, height: rH, thickness: rT }, // Usa dimensões arredondadas
+            detectedEdgeColor: colorKey, // Define a cor final resolvida
             finalName: finalName,
             groupCategory: geoCategory,
             grainDirection: 'N/A', 

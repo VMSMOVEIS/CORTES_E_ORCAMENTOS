@@ -119,32 +119,36 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
     const activeResult = result;
 
     const groupedGlobalParts = useMemo(() => {
-        if (!activeResult) return {};
-        const placedParts = activeResult.sheets.flatMap(s => s.parts);
-        const unplacedPartsNormalized = (activeResult.unplacedParts || []).map(p => ({
-            uuid: `unplaced-${p.id}`, partId: p.id, displayId: p.displayId,
-            x: 0, y: 0, width: p.dimensions.width, height: p.dimensions.height,
-            rotated: false, name: p.finalName, group: p.groupCategory, edgeCode: '',
-            edges: p.edges, sourceFile: p.sourceFile,
-            notes: [...(p.notes || []), "NÃO ALOCADA"],
-            originalDimensions: { width: p.dimensions.width, height: p.dimensions.height }
-        } as PlacedPart));
-
-        const allParts = [...placedParts, ...unplacedPartsNormalized];
-        const grouped: Record<string, { part: PlacedPart, count: number, isUnplaced: boolean }[]> = {};
+        const grouped: Record<string, { part: ProcessedPart, count: number, isUnplaced: boolean }[]> = {};
         
-        allParts.forEach(p => {
+        parts.forEach(p => {
             const project = p.sourceFile || projectName || "Geral";
             if (!grouped[project]) grouped[project] = [];
-            const isUnplaced = p.uuid.startsWith('unplaced-') || (p.notes && p.notes.includes("NÃO ALOCADA"));
-            const existing = grouped[project].find(x => x.part.displayId === p.displayId && x.isUnplaced === isUnplaced);
-            if (existing) existing.count++; else grouped[project].push({ part: p, count: 1, isUnplaced: !!isUnplaced });
+            
+            // Check if this part is actually unplaced in the current result
+            let isUnplaced = false;
+            if (activeResult) {
+                const placedUuids = activeResult.sheets.flatMap(s => s.parts.map(pp => pp.partId));
+                if (!placedUuids.includes(p.id)) {
+                    isUnplaced = true;
+                }
+            }
+
+            const existing = grouped[project].find(x => x.part.id === p.id && x.isUnplaced === isUnplaced);
+            if (existing) {
+                existing.count += p.quantity;
+            } else {
+                grouped[project].push({ 
+                    part: p, 
+                    count: p.quantity, 
+                    isUnplaced 
+                });
+            }
         });
         return grouped;
-    }, [activeResult, projectName]);
+    }, [parts, activeResult, projectName]);
 
     const cutListPages = useMemo(() => {
-        if (!activeResult) return [];
         const rows: PrintRow[] = [];
         const sortedProjects = Object.keys(groupedGlobalParts).sort();
         
@@ -154,7 +158,28 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                 if (a.isUnplaced !== b.isUnplaced) return a.isUnplaced ? 1 : -1;
                 return parseInt(a.part.displayId) - parseInt(b.part.displayId);
             });
-            items.forEach(item => rows.push({ type: 'part', part: item.part, count: item.count, project: proj, isUnplaced: item.isUnplaced }));
+            items.forEach(item => {
+                // Map ProcessedPart to PlacedPart format for row
+                const p = item.part;
+                const mockPlaced: PlacedPart = {
+                    uuid: p.id,
+                    partId: p.id,
+                    displayId: p.displayId,
+                    x: 0,
+                    y: 0,
+                    width: p.dimensions.width,
+                    height: p.dimensions.height,
+                    rotated: false,
+                    name: p.finalName,
+                    group: p.groupCategory,
+                    edgeCode: '',
+                    edges: p.edges,
+                    sourceFile: p.sourceFile,
+                    notes: p.notes,
+                    originalDimensions: { width: p.dimensions.width, height: p.dimensions.height }
+                };
+                rows.push({ type: 'part', part: mockPlaced, count: item.count, project: proj, isUnplaced: item.isUnplaced });
+            });
         });
 
         const pages: PrintRow[][] = [];
@@ -328,8 +353,8 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                                     } else {
                                                         const p = row.part;
                                                         const e = p.edges || { long1: 'none', long2: 'none', short1: 'none', short2: 'none' };
-                                                        const logicalLength = p.originalDimensions?.height ?? (p.rotated ? p.width : p.height);
-                                                        const logicalWidth = p.originalDimensions?.width ?? (p.rotated ? p.height : p.width);
+                                                        const logicalLength = p.width;
+                                                        const logicalWidth = p.height;
                                                         const lengthEdges: [EdgeType, EdgeType] = [e.long1, e.long2];
                                                         const widthEdges: [EdgeType, EdgeType] = [e.short1, e.short2];
 
@@ -415,8 +440,8 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                     <div className="grid grid-cols-3 gap-2">
                                         {pageParts.map((part, idx) => {
                                              const e = part.edges || { long1: 'none', long2: 'none', short1: 'none', short2: 'none' };
-                                             const logicalLength = part.originalDimensions?.height ?? (part.rotated ? part.width : part.height);
-                                             const logicalWidth = part.originalDimensions?.width ?? (part.rotated ? part.height : part.width);
+                                             const logicalLength = part.width;
+                                             const logicalWidth = part.height;
                                              const lengthEdges: [EdgeType, EdgeType] = [e.long1, e.long2];
                                              const widthEdges: [EdgeType, EdgeType] = [e.short1, e.short2];
                                              const notesStr = part.notes?.filter(n => n && !n.includes("NÃO ALOCADA")).join(', ');

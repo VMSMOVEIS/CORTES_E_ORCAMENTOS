@@ -68,7 +68,7 @@ const EdgeSelector: React.FC<EdgeSelectorProps> = ({ edges, onUpdate, type, show
 
             {/* ROW 3: COLORED */}
             <div className="flex items-center gap-2">
-                {showLabels && <span className="text-[8px] font-black text-amber-500 uppercase w-10 text-right leading-none whitespace-nowrap">2ª Cor</span>}
+                {showLabels && <span className="text-[8px] font-black text-amber-500 uppercase w-10 text-right leading-none whitespace-nowrap">Cor</span>}
                 <div className="flex gap-1.5">
                     <EdgeCheckbox checked={edges[side1] === 'colored'} onClick={() => handleToggle(side1, 'colored')} colorClass="bg-amber-500 border-amber-500" />
                     <EdgeCheckbox checked={edges[side2] === 'colored'} onClick={() => handleToggle(side2, 'colored')} colorClass="bg-amber-500 border-amber-500" />
@@ -183,7 +183,7 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                     <th className="px-1 py-4 w-[75px] text-center border-r border-slate-100">Fitas (C)</th>
                     <th className="px-1 py-4 w-[45px] text-center border-r border-slate-100">Fitas (L)</th>
                     <th className="px-1 py-4 w-[35px] text-center border-r border-slate-100">Qtd.</th>
-                    <th className="px-2 py-4 w-[90px] border-r border-slate-100">2ª Cor</th>
+                    <th className="px-2 py-4 w-[90px] border-r border-slate-100">Cor</th>
                     <th className="px-2 py-4 w-[80px] border-r border-slate-100">Obs.</th> 
                     <th className="px-2 py-4 w-[75px] text-center">Ações</th>
                 </tr>
@@ -323,10 +323,14 @@ export const PartTable: React.FC<PartTableProps> = ({ parts, availableMaterials,
                             onChange={(e) => onUpdatePart(part.id, 'detectedEdgeColor', e.target.value)}
                             className={`w-full bg-slate-50 border border-slate-100 rounded px-1.5 py-1 text-[9px] font-bold text-slate-600 outline-none truncate hover:border-blue-300 ${!hasColoredEdge ? 'opacity-40' : ''}`}
                         >
-                            <option value="">{mat?.name?.includes('Branco') ? 'Branco' : 'Veneer'}</option>
+                            <option value="">{part.detectedEdgeColor ? 'Remover Fita' : 'Selecionar Cor...'}</option>
                             {availableEdgeBands.map(eb => (
                                 <option key={eb.id} value={eb.name}>{eb.name}</option>
                             ))}
+                            {/* Se o material for padrão e não estiver na lista, mostra como opção */}
+                            {part.materialName && !availableEdgeBands.some(eb => eb.name === part.materialName) && (
+                                <option value={part.materialName}>{part.materialName} (Auto)</option>
+                            )}
                         </select>
                     </td>
 

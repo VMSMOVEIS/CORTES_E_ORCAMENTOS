@@ -47,11 +47,19 @@ export const PartsListView: React.FC<PartsListViewProps> = ({
     // Categorization logic
     const categorizePart = (part: ProcessedPart) => {
         const name = part.finalName.toLowerCase();
-        if (name.includes('lateral') || name.includes('divis') || name.includes('base') || name.includes('travessa') || name.includes('acabamento')) return 'estruturais';
-        if (name.includes('porta')) return 'portas';
-        if (name.includes('gaveta') || name.includes('frente')) return 'gavetas';
-        if (name.includes('prat')) return 'prateleiras';
-        if (name.includes('fundo') || name.includes('tras')) return 'fundos';
+        const cat = (part.groupCategory || '').toLowerCase();
+        const combined = `${name} ${cat}`;
+
+        if (combined.includes('gaveta') || combined.includes('gav.' ) || combined === 'gav') return 'gavetas';
+        if (combined.includes('prateleira') || combined.includes('prat.') || combined === 'prat') return 'prateleiras';
+        if (combined.includes('porta') || combined.includes('basculante')) return 'portas';
+        if (
+            combined.includes('divisoria') || combined.includes('div.') || combined === 'div' ||
+            combined.includes('base') || combined.includes('topo') || 
+            combined.includes('lateral') || combined.includes('laterais') || combined === 'lat' || combined.includes('lat.') ||
+            combined.includes('saia') || combined.includes('vista')
+        ) return 'estruturais';
+        if (combined.includes('fundo') || combined.includes('tras')) return 'fundos';
         return 'diversos';
     };
 

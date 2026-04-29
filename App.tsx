@@ -223,8 +223,11 @@ const App: React.FC = () => {
       parts.forEach(p => {
           const name = (p.finalName || '').toLowerCase();
           const orig = (p.originalName || '').toLowerCase();
-          if (name.includes('porta') || orig.includes('porta')) doors += p.quantity;
-          else if (name.includes('gaveta') || orig.includes('gaveta') || name.includes('frente de') || orig.includes('frente de')) drawers += p.quantity;
+          const cat = (p.groupCategory || '').toLowerCase();
+          const combined = `${name} ${orig} ${cat}`;
+
+          if (combined.includes('porta') || combined.includes('basculante')) doors += p.quantity;
+          else if (combined.includes('gaveta') || combined.includes('gav.') || combined.includes('gav') ) drawers += p.quantity;
       });
       return { doors, drawers };
   }, [parts]);
@@ -535,9 +538,9 @@ const App: React.FC = () => {
       setStatus({ step: 'analyzing', message: 'Aplicando engenharia...' });
       
       // NOVA LÓGICA: Separar Painéis de Ferragens
-      const { panels, hardware } = analyzePartsLocally(rawParts, parts.length, swapDimensions);
+      const { panels, hardware } = analyzePartsLocally(rawParts, parts.length, swapDimensions, edgeRegistry);
       
-      const partsWithSource = panels.map(p => ({ ...p, sourceFile: customSourceName }));
+      const partsWithSource = panels.map(p => ({ ...p, sourceFile: customSourceName, detectedEdgeColor: p.detectedEdgeColor || p.materialName || '' }));
       const hardwareWithSource = hardware.map(h => ({ ...h, sourceFile: customSourceName }));
       
       // Use updatePartsWithHistory to handle the new parts addition
@@ -1122,9 +1125,20 @@ const App: React.FC = () => {
                                                 updatedPart.notes = generateAutomatedNotes(newEdges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
                                             }
                                         } else if (f === 'width' || f === 'height' || f === 'thickness') {
-                                            updatedPart = { ...p, dimensions: { ...p.dimensions, [f]: Number(v) } };
+                                            const val = Number(v);
+                                            let newDim = { ...p.dimensions, [f]: val };
+                                            let newEdges = { ...p.edges };
+                                            
+                                            // NOVO: Garantir que o maior sempre fique no COMPRIMENTO (width)
+                                            if (f !== 'thickness' && (newDim.width < newDim.height)) {
+                                                const temp = newDim.width;
+                                                newDim.width = newDim.height;
+                                                newDim.height = temp;
+                                            }
+
+                                            updatedPart = { ...p, dimensions: newDim, edges: newEdges };
                                             const mat = materials.find(m => m.name === p.materialName);
-                                            updatedPart.notes = generateAutomatedNotes(p.edges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
+                                            updatedPart.notes = generateAutomatedNotes(newEdges, updatedPart.dimensions, mat, p.detectedEdgeColor, !!isBoleado);
                                         } else if (f === 'swapDimensions') {
                                             const newDimensions = {
                                                 ...p.dimensions,
@@ -1239,17 +1253,17 @@ const App: React.FC = () => {
                                                                         if (p.detectedEdgeColor) return p.detectedEdgeColor;
                                                                         if (type === 'solid') return 'Sólida';
                                                                         if (type === 'dashed') return 'Pontilhada';
-                                                                        if (type === 'colored') return '2ª Cor';
+                                                                        if (type === 'colored') return 'Cor';
                                                                         return 'Fita';
                                                                     };
 
                                                                     [long1, long2].forEach(edge => {
                                                                         const name = getEdgeName(edge);
-                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (height * qty);
+                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (width * qty);
                                                                     });
                                                                     [short1, short2].forEach(edge => {
                                                                         const name = getEdgeName(edge);
-                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (width * qty);
+                                                                        if (name) edgeTotals[name] = (edgeTotals[name] || 0) + (height * qty);
                                                                     });
                                                                 });
                                                                 return Object.entries(edgeTotals)
