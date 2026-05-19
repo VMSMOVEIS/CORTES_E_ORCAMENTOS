@@ -55,13 +55,13 @@ const generateAutoOrderId = (): string => {
     return `${day}${month}${id}-${year}`;
 };
 
-export const OptimizationPanel: React.FC<OptimizationPanelProps> = ({ parts, projectName, onOptimizationComplete, globalConfig, result: initialResult }) => {
+export const OptimizationPanel: React.FC<OptimizationPanelProps> = ({ parts, projectName, hardwareRegistry, onOptimizationComplete, globalConfig, result: initialResult }) => {
   
   // Inicializa com o resultado vindo das props (se houver)
   const [result, setResult] = useState<OptimizationResult | null>(initialResult || null);
 
   // INICIALIZAÇÃO DA ABA: Se já existe resultado (via props), vai direto para 'layout'
-  const [activeTab, setActiveTab] = useState<'config' | 'layout' | 'labels'>(() => initialResult ? 'layout' : 'config');
+  const [activeTab, setActiveTab] = useState<'config' | 'layout' | 'labels' | 'globalList'>(() => initialResult ? 'layout' : 'config');
 
   const [sheetDims, setSheetDims] = useState({ 
       width: globalConfig.sheetWidth, 
@@ -328,14 +328,14 @@ export const OptimizationPanel: React.FC<OptimizationPanelProps> = ({ parts, pro
         </div>
         
         <div className="flex bg-slate-200/50 p-1 rounded-2xl border border-slate-200">
-            {['config', 'layout', 'labels'].map((tab) => (
+            {['config', 'layout', 'globalList', 'labels'].map((tab) => (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab as any)} 
                 disabled={tab !== 'config' && !result}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-800 disabled:opacity-30'}`}
               >
-                {tab === 'config' ? 'Ajustes' : tab === 'layout' ? 'Visual' : 'Etiquetas'}
+                {tab === 'config' ? 'Ajustes' : tab === 'layout' ? 'Mapa' : tab === 'globalList' ? 'Lista' : 'Etiquetas'}
               </button>
             ))}
         </div>
@@ -503,6 +503,50 @@ export const OptimizationPanel: React.FC<OptimizationPanelProps> = ({ parts, pro
                     </div>
                 )}
 
+                {activeTab === 'globalList' && remappedResult && (
+                    <div className="p-8">
+                        <div className="mb-6 flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Lista de Peças Global</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{matInfo.name} - {matInfo.thickness}mm</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-2xl font-black text-slate-900 leading-none">{remappedResult.sheets.flatMap(s => s.parts).length} <span className="text-xs font-bold text-slate-400">Peças</span></p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-100 italic">
+                                    <tr>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400 text-center w-12">ID</th>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400">Descrição da Peça</th>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400 text-center">Comp.</th>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400 text-center">Larg.</th>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400 text-center w-12">Qtd</th>
+                                        <th className="p-4 font-black uppercase text-[10px] text-slate-400">Projeto / Origem</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {parts
+                                        .filter(p => `${p.materialName} - ${p.dimensions.thickness}mm` === selectedMaterial)
+                                        .map((p, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="p-4 text-center font-black text-slate-800">#{p.displayId}</td>
+                                                <td className="p-4 font-bold text-slate-700">{p.finalName}</td>
+                                                <td className="p-4 text-center font-mono text-slate-500">{Math.round(p.dimensions.width)}</td>
+                                                <td className="p-4 text-center font-mono text-slate-500">{Math.round(p.dimensions.height)}</td>
+                                                <td className="p-4 text-center font-black text-blue-600">{p.quantity}</td>
+                                                <td className="p-4 text-xs font-bold text-slate-400 uppercase">{p.sourceFile || projectName}</td>
+                                            </tr>
+                                        ))
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'labels' && (
                     <PrintPreview 
                         result={remappedResult} 
@@ -512,6 +556,8 @@ export const OptimizationPanel: React.FC<OptimizationPanelProps> = ({ parts, pro
                         materialName={matInfo.name}
                         thickness={matInfo.thickness}
                         edgeBandStyle={globalConfig.edgeBandStyle || 'solid'}
+                        hardwareRegistry={hardwareRegistry}
+                        defaultOnlyLabels={true}
                     />
                 )}
             </div>

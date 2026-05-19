@@ -16,6 +16,7 @@ import { NewProjectModal } from './components/NewProjectModal';
 import { FileImportModal } from './components/FileImportModal'; 
 import { MaterialMapper } from './components/MaterialMapper';
 import { ManualLayoutEditor } from './components/ManualLayoutEditor'; 
+import { TimelineView } from './components/TimelineView';
 import { DropZone } from './components/DropZone'; 
 import { parse3DFile } from './services/geometryEngine';
 import { analyzePartsLocally, generateAutomatedNotes } from './services/localAnalyzer'; 
@@ -31,7 +32,7 @@ import {
   Menu, Save, SlidersHorizontal, LayoutList, 
   LayoutGrid, Move, Printer, FilePlus, FolderOpen, 
   FileOutput, Settings, LogOut, FileType, Flag,
-  Box, Scissors, ChevronRight, ChevronUp, ChevronDown, X, Loader2, FileSpreadsheet, Trash2, Home, ArrowDown, ArrowRight, RefreshCw, Ban, RotateCw, UploadCloud, GripHorizontal, Disc, Wrench, Hammer, FileText, Undo2, Redo2, Calculator, TrendingUp, CheckCircle2, ClipboardList
+  Box, Scissors, ChevronRight, ChevronUp, ChevronDown, X, Loader2, FileSpreadsheet, Trash2, Home, ArrowDown, ArrowRight, RefreshCw, Ban, RotateCw, UploadCloud, GripHorizontal, Disc, Wrench, Hammer, FileText, Undo2, Redo2, Calculator, TrendingUp, CheckCircle2, ClipboardList, Calendar
 } from 'lucide-react';
 
 import { DEFAULT_HARDWARE_LIST } from './src/constants';
@@ -53,7 +54,7 @@ const STORAGE_KEYS = {
     EQUIPMENT: 'cutlist_equipment_v1'
 };
 
-type ViewMode = 'home' | 'parts' | 'hardware' | 'results' | 'editor' | 'assembly' | 'report' | 'print' | 'config' | 'export' | 'budget' | 'registrations';
+type ViewMode = 'home' | 'parts' | 'hardware' | 'results' | 'editor' | 'assembly' | 'report' | 'print' | 'config' | 'export' | 'budget' | 'registrations' | 'timeline';
 
 const App: React.FC = () => {
   // --- STATE ---
@@ -240,13 +241,23 @@ const App: React.FC = () => {
 
   const [collaborators, setCollaborators] = useState<RegisteredCollaborator[]>(() => {
       const saved = localStorage.getItem(STORAGE_KEYS.COLLABORATORS);
-      return saved ? JSON.parse(saved) : [
-          { id: '1', code: 'COL-001', name: 'Carlos Alberto', role: 'Marceneiro', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 3800.00, hourRate: 17.27, status: 'Ativo' },
-          { id: '2', code: 'COL-002', name: 'João Pereira', role: 'Marceneiro', sector: 'Acabamento', type: 'Hora Produtiva', monthRate: 3500.00, hourRate: 15.91, status: 'Ativo' },
-          { id: '3', code: 'COL-003', name: 'Ricardo Santos', role: 'Auxiliar', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 2200.00, hourRate: 10.00, status: 'Ativo' },
-          { id: '4', code: 'COL-004', name: 'Roberto Silva', role: 'Oper. Seccionadora', sector: 'Corte', type: 'Hora Produtiva', monthRate: 3000.00, hourRate: 13.64, status: 'Ativo' },
-          { id: '5', code: 'COL-005', name: 'Rafael Santos', role: 'Oper. Coladeira', sector: 'Bordeamento', type: 'Hora Produtiva', monthRate: 3200.00, hourRate: 14.55, status: 'Ativo' },
+      const defaultCollaborators: RegisteredCollaborator[] = [
+          { id: '1', code: 'COL-001', name: 'Carlos Alberto', role: 'Marceneiro', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 3800.00, hourRate: 17.27, productionHours: 220, status: 'Ativo' },
+          { id: '2', code: 'COL-002', name: 'João Pereira', role: 'Marceneiro', sector: 'Acabamento', type: 'Hora Produtiva', monthRate: 3500.00, hourRate: 15.91, productionHours: 220, status: 'Ativo' },
+          { id: '3', code: 'COL-003', name: 'Ricardo Santos', role: 'Auxiliar', sector: 'Montagem', type: 'Hora Produtiva', monthRate: 2200.00, hourRate: 10.00, productionHours: 220, status: 'Ativo' },
+          { id: '4', code: 'COL-004', name: 'Roberto Silva', role: 'Oper. Seccionadora', sector: 'Corte', type: 'Hora Produtiva', monthRate: 3000.00, hourRate: 13.64, productionHours: 220, status: 'Ativo' },
+          { id: '5', code: 'COL-005', name: 'Rafael Santos', role: 'Oper. Coladeira', sector: 'Bordeamento', type: 'Hora Produtiva', monthRate: 3200.00, hourRate: 14.55, productionHours: 220, status: 'Ativo' },
       ];
+      if (!saved) return defaultCollaborators;
+      try {
+          const parsed = JSON.parse(saved);
+          // Migration/Safety: Ensure all have productionHours
+          return parsed.map((c: any) => ({
+              ...c,
+              productionHours: c.productionHours || 220,
+              hourRate: c.hourRate || (c.productionHours ? c.monthRate / c.productionHours : c.monthRate / 220)
+          }));
+      } catch (e) { return defaultCollaborators; }
   });
 
   const [suppliers, setSuppliers] = useState<RegisteredSupplier[]>(() => {
@@ -750,23 +761,39 @@ const App: React.FC = () => {
   const SidebarBtn = ({ icon: Icon, label, active, onClick }: any) => (
       <button 
         onClick={onClick}
-        className={`w-full flex flex-col items-center justify-center py-3 px-1 gap-1 border-b border-slate-300 transition-all ${
-            active ? 'bg-white text-blue-600 shadow-inner' : 'text-slate-600 hover:bg-slate-100'
+        className={`relative group w-full flex flex-col items-center justify-center py-3.5 px-1 transition-all duration-300 outline-none ${
+            active ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         }`}
       >
-          <Icon size={24} strokeWidth={1.5} />
-          <span className="text-[10px] font-bold uppercase tracking-tight">{label}</span>
+          <div className={`transition-all duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+            <Icon size={22} strokeWidth={active ? 2.5 : 1.5} />
+          </div>
+          <span className={`text-[8px] font-bold uppercase tracking-[0.1em] mt-2 transition-all duration-300 ${active ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}>
+            {label}
+          </span>
+          
+          {/* Active indicator */}
+          {active && (
+            <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-full shadow-[2px_0_10px_rgba(59,130,246,0.8)] animate-in fade-in slide-in-from-left-2" />
+          )}
+
+          {/* Subtle glow for active */}
+          {active && (
+            <div className="absolute inset-0 bg-blue-500/5 pointer-events-none" />
+          )}
       </button>
   );
 
   const MenuItem = ({ icon: Icon, label, shortcut, onClick, danger = false }: any) => (
       <button 
         onClick={onClick}
-        className={`w-full text-left px-4 py-3 flex items-center gap-3 border-b border-slate-200 hover:bg-blue-50 transition-colors ${danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-700'}`}
+        className={`w-full text-left px-4 py-3 cursor-pointer flex items-center gap-4 rounded-xl transition-all duration-200 group ${danger ? 'text-red-500 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
       >
-          <Icon size={18} />
-          <span className="flex-1 font-medium text-sm">{label}</span>
-          {shortcut && <span className="text-xs text-slate-400 bg-slate-100 px-1 rounded">{shortcut}</span>}
+          <div className={`p-2 rounded-lg transition-colors ${danger ? 'bg-red-100/50' : 'bg-slate-50 group-hover:bg-white'}`}>
+            <Icon size={18} strokeWidth={1.5} />
+          </div>
+          <span className="flex-1 font-bold text-xs uppercase tracking-wider">{label}</span>
+          {shortcut && <span className="text-[10px] font-black text-slate-300 bg-white border border-slate-100 px-1.5 py-0.5 rounded shadow-sm transition-all group-hover:text-slate-500 group-hover:border-slate-200">{shortcut}</span>}
       </button>
   );
 
@@ -774,124 +801,162 @@ const App: React.FC = () => {
     <div className="flex h-screen w-screen bg-slate-100 overflow-hidden font-sans text-slate-900 select-none">
       
       {/* 1. SIDEBAR (Left) */}
-      <aside className="w-[88px] bg-[#e0e0e0] flex flex-col border-r border-slate-400 z-50 shrink-0 print:hidden">
-          <SidebarBtn icon={Menu} label="Menu" active={isMenuOpen} onClick={() => setIsMenuOpen(!isMenuOpen)} />
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <SidebarBtn icon={LayoutList} label="Extração" active={activeView === 'parts'} onClick={() => setActiveView('parts')} />
-            <SidebarBtn icon={ClipboardList} label="Cadastros" active={activeView === 'registrations'} onClick={() => setActiveView('registrations')} />
-            <SidebarBtn icon={Calculator} label="Orçamento" active={activeView === 'budget'} onClick={() => setActiveView('budget')} />
-            
-            {/* Projeto de Cortes e Montagem Group */}
-            <div className="border-t border-slate-300 mt-2 pt-2">
-                <button 
-                    onClick={() => setIsCutProjectExpanded(!isCutProjectExpanded)}
-                    className={`w-full flex flex-col items-center justify-center py-3 px-1 gap-1 transition-all ${
-                        isCutProjectExpanded || ['hardware', 'results', 'report', 'editor', 'assembly', 'export', 'print'].includes(activeView) 
-                        ? 'bg-slate-200 text-blue-800 font-bold' 
-                        : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                >
-                    <Hammer size={24} strokeWidth={1.5} />
-                    <span className="text-[9px] font-bold uppercase tracking-tight text-center leading-tight">Projeto de<br/>Cortes</span>
-                    {isCutProjectExpanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
-                </button>
-
-                {isCutProjectExpanded && (
-                    <div className="bg-slate-100 animate-in slide-in-from-top-2 duration-200">
-                        <SidebarBtn icon={LayoutGrid} label="Resultados" active={activeView === 'results'} onClick={() => setActiveView('results')} />
-                        <SidebarBtn icon={FileText} label="Relatório" active={activeView === 'report'} onClick={() => setActiveView('report')} />
-                        <SidebarBtn icon={Move} label="Editor" active={activeView === 'editor'} onClick={() => setActiveView('editor')} />
-                        <SidebarBtn icon={Hammer} label="Montagem" active={activeView === 'assembly'} onClick={() => setActiveView('assembly')} />
-                        <SidebarBtn icon={FileSpreadsheet} label="Exportar" active={activeView === 'export'} onClick={() => setActiveView('export')} />
-                        <SidebarBtn icon={Printer} label="Impressão" active={activeView === 'print'} onClick={() => setActiveView('print')} />
-                    </div>
-                )}
-            </div>
+      <aside className="w-20 bg-slate-950 flex flex-col border-r border-slate-800 z-50 shrink-0 print:hidden shadow-2xl relative">
+          {/* Menu Button Area */}
+          <div className="p-3 border-b border-slate-800/50">
+            <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-300 ${isMenuOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-700/50'}`}
+            >
+                <Menu size={20} strokeWidth={1.5} />
+            </button>
           </div>
           
-          <div className="py-2 border-t border-slate-300">
-             <div className="text-[8px] text-center text-slate-500 font-bold px-1">Smart 3D<br/>Cut Pro v4.1</div>
+          <div className="flex-1 overflow-y-auto custom-sidebar-scrollbar py-2">
+            <SidebarBtn icon={ClipboardList} label="Cadastros" active={activeView === 'registrations'} onClick={() => setActiveView('registrations')} />
+            <SidebarBtn icon={LayoutList} label="Extração" active={activeView === 'parts'} onClick={() => setActiveView('parts')} />
+            <SidebarBtn icon={FileSpreadsheet} label="Exportar" active={activeView === 'export'} onClick={() => setActiveView('export')} />
+            <SidebarBtn icon={Calculator} label="Orçamentos" active={activeView === 'budget'} onClick={() => setActiveView('budget')} />
+            <SidebarBtn icon={FileText} label="Relatórios" active={activeView === 'report'} onClick={() => setActiveView('report')} />
+            <SidebarBtn icon={LayoutGrid} label="Resultados" active={activeView === 'results'} onClick={() => setActiveView('results')} />
+            <SidebarBtn icon={Move} label="Editor" active={activeView === 'editor'} onClick={() => setActiveView('editor')} />
+            <SidebarBtn icon={Hammer} label="Montagem" active={activeView === 'assembly'} onClick={() => setActiveView('assembly')} />
+            <SidebarBtn icon={Calendar} label="Cronograma" active={activeView === 'timeline'} onClick={() => setActiveView('timeline')} />
+            <SidebarBtn icon={Printer} label="Impressão" active={activeView === 'print'} onClick={() => setActiveView('print')} />
+          </div>
+          
+          <div className="p-4 border-t border-slate-800/50">
+             <div className="text-[7px] text-center text-slate-600 font-bold uppercase tracking-tighter leading-tight">
+               Smart 3D<br/><span className="text-blue-500/50">Cut Pro v4.1</span>
+             </div>
           </div>
       </aside>
 
       {/* 2. MENU DRAWER */}
       {isMenuOpen && (
-          <div className="absolute top-0 left-[88px] bottom-0 w-64 bg-[#f1f5f9] border-r border-slate-400 shadow-2xl z-40 animate-in slide-in-from-left-10 duration-200 print:hidden flex flex-col">
-              <div className="p-4 bg-slate-200 border-b border-slate-300 flex justify-between items-center">
-                  <span className="font-bold text-slate-700 uppercase">Menu Principal</span>
-                  <button onClick={() => setIsMenuOpen(false)}><X size={16}/></button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <MenuItem icon={Home} label="Início" onClick={() => { setActiveView('home'); setIsMenuOpen(false); }} />
-                <MenuItem icon={FilePlus} label="Novo Projeto" onClick={handleNewProjectClick} />
-                <MenuItem icon={FolderOpen} label="Abrir Arquivo" onClick={handleOpenFile} />
-                <MenuItem icon={Save} label="Salvar no PC" onClick={() => { handleSaveProjectToDisk(); setIsMenuOpen(false); }} />
-                <MenuItem icon={Trash2} label="Limpar Projeto" onClick={handleClearProject} danger />
-                <div className="h-px bg-slate-300 my-1 mx-4"></div>
-                <MenuItem icon={Settings} label="Configurações" onClick={() => { setActiveView('config'); setIsMenuOpen(false); }} />
-                <MenuItem icon={LogOut} label="Sair" danger onClick={() => window.location.reload()} />
-              </div>
-          </div>
+          <>
+            {/* Backdrop for closing */}
+            <div className="fixed inset-0 z-30 bg-black/5" onClick={() => setIsMenuOpen(false)} />
+            
+            <div className="absolute top-0 left-20 bottom-0 w-72 bg-white border-r border-slate-200 shadow-[0_0_40px_rgba(0,0,0,0.1)] z-40 animate-in slide-in-from-left-10 fade-in duration-300 print:hidden flex flex-col">
+                <div className="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center group">
+                    <div className="flex flex-col">
+                        <span className="font-black text-slate-900 text-sm uppercase tracking-wider">Ações do Projeto</span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">Gerenciamento Geral</span>
+                    </div>
+                    <button 
+                        onClick={() => setIsMenuOpen(false)}
+                        className="p-1.5 hover:bg-white hover:text-red-500 rounded-lg text-slate-400 border border-transparent hover:border-slate-200 transition-all active:scale-95"
+                    >
+                        <X size={16}/>
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  <MenuItem icon={Home} label="Visão Geral / Início" onClick={() => { setActiveView('home'); setIsMenuOpen(false); }} />
+                  
+                  <div className="pt-4 pb-2 px-3">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ferramentas de Fluxo</span>
+                  </div>
+                  
+                  <MenuItem icon={FilePlus} label="Novo Projeto" onClick={handleNewProjectClick} />
+                  <MenuItem icon={FolderOpen} label="Importar Arquivo" shortcut="Ctrl+O" onClick={handleOpenFile} />
+                  <MenuItem icon={Save} label="Backup do Projeto (.json)" shortcut="Ctrl+S" onClick={() => { handleSaveProjectToDisk(); setIsMenuOpen(false); }} />
+                  
+                  <div className="pt-4 pb-2 px-3 flex items-center gap-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sistema</span>
+                  </div>
+                  
+                  <MenuItem icon={Settings} label="Configurações Técnicas" onClick={() => { setActiveView('config'); setIsMenuOpen(false); }} />
+                  <MenuItem icon={Trash2} label="Resetar Ambiente" onClick={handleClearProject} danger />
+                  
+                  <div className="mt-auto px-4 py-6 border-t border-slate-50">
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white transition-all duration-300"
+                    >
+                        <LogOut size={14} /> Sair da Aplicação
+                    </button>
+                  </div>
+                </div>
+            </div>
+          </>
       )}
 
       {/* 3. MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col bg-white relative overflow-hidden">
           
           {/* Top Bar */}
-          <div className="h-10 bg-[#e0e0e0] border-b border-slate-300 flex items-center px-4 justify-between shrink-0 print:hidden">
-             <div className="flex items-center gap-4">
+          <div className="h-12 bg-white border-b border-slate-200 flex items-center px-6 justify-between shrink-0 print:hidden shadow-sm z-20">
+             <div className="flex items-center gap-6">
                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs uppercase text-slate-500">{activeView === 'home' ? 'Início' : activeView === 'config' ? 'Configurações' : activeView === 'hardware' ? 'Ferragens' : activeView}</span>
-                    <ChevronRight size={12} className="text-slate-400" />
-                    <input 
-                        type="text" 
-                        value={projectName} 
-                        onChange={e => setProjectName(e.target.value)}
-                        className="bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 text-sm font-bold text-slate-800 outline-none w-64"
-                    />
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Módulo Ativo</span>
+                        <div className="flex items-center gap-2">
+                            <span className="font-black text-xs uppercase text-blue-600 transition-all">
+                              {activeView === 'home' ? 'Painel Início' : 
+                               activeView === 'config' ? 'Configurações' : 
+                               activeView === 'hardware' ? 'Ferragens' : 
+                               activeView === 'timeline' ? 'Cronograma' : 
+                               activeView}
+                            </span>
+                            <ChevronRight size={10} className="text-slate-300" />
+                            <input 
+                                type="text" 
+                                value={projectName} 
+                                onChange={e => setProjectName(e.target.value)}
+                                className="bg-transparent border-b border-transparent hover:border-blue-500/30 focus:border-blue-500 text-sm font-black text-slate-900 outline-none w-64 transition-all"
+                            />
+                        </div>
+                    </div>
                  </div>
-
+ 
                  {parts.length > 0 && (
-                     <div className="flex items-center gap-3 ml-2 border-l border-slate-300 pl-4">
-                         <div className="flex items-center gap-1.5" title="Total de Portas detectadas">
-                             <Box size={14} className="text-blue-500" />
-                             <span className="text-[10px] font-black text-slate-600 uppercase">Portas:</span>
-                             <span className="text-xs font-black text-blue-700 bg-blue-50 px-1.5 rounded">{projectStats.doors}</span>
+                     <div className="flex items-center gap-4 ml-2 border-l border-slate-100 pl-6 h-8">
+                         <div className="flex flex-col items-center" title="Total de Portas detectadas">
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Portas</span>
+                             <div className="flex items-center gap-1">
+                                <Box size={10} className="text-blue-500" />
+                                <span className="text-xs font-black text-slate-800">{projectStats.doors}</span>
+                             </div>
                          </div>
-                         <div className="flex items-center gap-1.5" title="Total de Gavetas detectadas">
-                             <LayoutGrid size={14} className="text-emerald-500" />
-                             <span className="text-[10px] font-black text-slate-600 uppercase">Gavetas:</span>
-                             <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-1.5 rounded">{projectStats.drawers}</span>
+                         <div className="flex flex-col items-center" title="Total de Gavetas detectadas">
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Gavetas</span>
+                             <div className="flex items-center gap-1">
+                                <LayoutGrid size={10} className="text-emerald-500" />
+                                <span className="text-xs font-black text-slate-800">{projectStats.drawers}</span>
+                             </div>
                          </div>
                      </div>
                  )}
-
+ 
                  {/* Undo/Redo Controls */}
-                 <div className="flex items-center bg-slate-200/50 rounded-lg p-0.5 border border-slate-300/50">
+                 <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200 ml-4 group">
                      <button 
                         onClick={handleUndo} 
                         disabled={history.length === 0}
-                        className="p-1 text-slate-500 hover:text-blue-600 hover:bg-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-lg disabled:opacity-20 transition-all active:scale-90"
                         title="Desfazer (Ctrl+Z)"
                      >
                          <Undo2 size={16} />
                      </button>
-                     <div className="w-px h-4 bg-slate-300 mx-0.5"></div>
+                     <div className="w-px h-4 bg-slate-200 mx-1"></div>
                      <button 
                         onClick={handleRedo} 
                         disabled={future.length === 0}
-                        className="p-1 text-slate-500 hover:text-blue-600 hover:bg-white rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-lg disabled:opacity-20 transition-all active:scale-90"
                         title="Refazer (Ctrl+Y)"
                      >
                          <Redo2 size={16} />
                      </button>
                  </div>
              </div>
-
+ 
              {status.step !== 'idle' && (
-                 <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
-                     <Loader2 size={12} className="animate-spin" /> {status.message}
+                 <div className="flex items-center gap-3 bg-blue-50 text-blue-600 border border-blue-100 pl-2 pr-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm animate-in zoom-in-95 duration-300">
+                     <div className="bg-blue-600 p-1 rounded-lg">
+                        <Loader2 size={12} className="animate-spin text-white" />
+                     </div>
+                     {status.message}
                  </div>
              )}
           </div>
@@ -1433,6 +1498,8 @@ const App: React.FC = () => {
                   </div>
               )}
 
+              {activeView === 'timeline' && <TimelineView />}
+
               {activeView === 'export' && (
                   <div className="max-w-6xl mx-auto mt-6 p-4 pb-20 animate-fade-in">
                       <h2 className="text-2xl font-black text-slate-700 mb-6 flex items-center gap-2">
@@ -1452,6 +1519,7 @@ const App: React.FC = () => {
                         materialName={optimizationResult?.meta?.materialName}
                         thickness={optimizationResult?.meta?.thickness}
                         edgeBandStyle={globalConfig.edgeBandStyle || 'solid'} // PASSANDO CONFIGURAÇÃO VISUAL
+                        hardwareRegistry={hardwareRegistry}
                       />
                   </div>
               )}

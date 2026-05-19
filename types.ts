@@ -287,6 +287,7 @@ export interface RegisteredCollaborator {
     type: string;
     monthRate: number;
     hourRate: number;
+    productionHours: number;
     status: 'Ativo' | 'Inativo';
 }
 

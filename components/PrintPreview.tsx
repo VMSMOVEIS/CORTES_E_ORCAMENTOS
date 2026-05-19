@@ -1,8 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { OptimizationResult, ProcessedPart, PlacedPart, EdgeType } from '../types';
+import { OptimizationResult, ProcessedPart, PlacedPart, EdgeType, RegisteredHardware } from '../types';
 import { SheetSVG } from './CuttingLayoutViewer';
-import { Printer, Check, Layers, Maximize, BarChart3, Timer, Loader2, Palette, Download, FolderOpen, LayoutTemplate, AlertTriangle } from 'lucide-react';
+import { Printer, Check, Layers, Maximize, BarChart3, Timer, Loader2, Palette, Download, FolderOpen, LayoutTemplate, AlertTriangle, Hammer, Wrench, Box } from 'lucide-react';
+import { generateAssemblyJSON } from '../services/assemblyEngine';
+import { ScrewDrawing, DowelDrawing, HingeDrawing, MinifixDrawing, NailDrawing } from './HardwareIcons';
 
 interface PrintPreviewProps {
     result: OptimizationResult | null;
@@ -12,6 +14,8 @@ interface PrintPreviewProps {
     materialName?: string;
     thickness?: number;
     edgeBandStyle?: 'solid' | 'dashed';
+    hardwareRegistry: RegisteredHardware[];
+    defaultOnlyLabels?: boolean;
 }
 
 // --- HELPERS ---
@@ -110,8 +114,15 @@ type PrintRow =
     | { type: 'header', project: string }
     | { type: 'part', part: PlacedPart, count: number, project: string, isUnplaced?: boolean };
 
-export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, projectName, projectOrder, materialName, thickness }) => {
-    const [options, setOptions] = useState({ showCutList: true, showCuttingPlan: true, showLabels: false });
+export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, projectName, projectOrder, materialName, thickness, hardwareRegistry, defaultOnlyLabels }) => {
+    const [options, setOptions] = useState({ 
+        showCutList: !defaultOnlyLabels, 
+        showCuttingPlan: !defaultOnlyLabels, 
+        showLabels: !!defaultOnlyLabels,
+        showHardwareList: false,
+        showAssemblyGuide: false,
+        showProductionSheet: false
+    });
     const [colorMode, setColorMode] = useState<'colored' | 'gray' | 'white'>('white');
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -227,7 +238,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
         if (isTurningOn) {
             if (options.showCutList || options.showCuttingPlan) {
                 const confirmExclusive = window.confirm("Etiquetas geralmente são impressas em papel adesivo separado.\n\nDeseja imprimir APENAS as etiquetas agora?");
-                if (confirmExclusive) setOptions({ showLabels: true, showCutList: false, showCuttingPlan: false });
+                if (confirmExclusive) setOptions({ showLabels: true, showCutList: false, showCuttingPlan: false, showHardwareList: false, showAssemblyGuide: false, showProductionSheet: false });
                 else setOptions({ ...options, showLabels: true });
             } else setOptions({ ...options, showLabels: true });
         } else setOptions({ ...options, showLabels: false });
@@ -248,9 +259,12 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
         if(!options.showCutList) document.body.classList.add('hide-cutlist');
         if(!options.showCuttingPlan) document.body.classList.add('hide-plan');
         if(!options.showLabels) document.body.classList.add('hide-labels');
+        if(!options.showHardwareList) document.body.classList.add('hide-hardware');
+        if(!options.showAssemblyGuide) document.body.classList.add('hide-assembly');
+        if(!options.showProductionSheet) document.body.classList.add('hide-production');
         window.print();
         setTimeout(() => {
-             document.body.classList.remove('custom-print-mode', 'hide-cutlist', 'hide-plan', 'hide-labels');
+             document.body.classList.remove('custom-print-mode', 'hide-cutlist', 'hide-plan', 'hide-labels', 'hide-hardware', 'hide-assembly', 'hide-production');
         }, 500);
     };
 
@@ -302,6 +316,14 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                     }
                     .flex-1.bg-slate-300\\/50 { background: white !important; }
                     ::-webkit-scrollbar { display: none; }
+                    .custom-print-mode .print-controls { display: none !important; }
+                    .custom-print-mode .a4-page-view { box-shadow: none !important; margin: 0 !important; width: 100% !important; border: none !important; }
+                    .hide-cutlist .print-section-cutlist { display: none !important; }
+                    .hide-plan .print-section-plan { display: none !important; }
+                    .hide-labels .print-section-labels { display: none !important; }
+                    .hide-hardware .print-section-hardware { display: none !important; }
+                    .hide-assembly .print-section-assembly { display: none !important; }
+                    .hide-production .print-section-production { display: none !important; }
                 }
             `}</style>
 
@@ -371,7 +393,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                                                 <td className="p-2 border border-slate-300 text-center"><DimensionWithTapeCell value={logicalLength} edges={lengthEdges} /></td>
                                                                 <td className="p-2 border border-slate-300 text-center"><DimensionWithTapeCell value={logicalWidth} edges={widthEdges} /></td>
                                                                 <td className="p-2 border border-slate-300 text-center font-black">{row.count}</td>
-                                                                <td className={`p-2 border border-slate-300 text-xs font-medium ${row.isUnplaced ? 'text-red-600' : 'text-slate-600'}`}>{p.notes?.join(', ')}</td>
+                                                                <td className={`p-2 border border-slate-300 text-xs font-medium ${row.isUnplaced ? 'text-red-600' : 'text-slate-600'}`}>{p.notes?.filter(n => !n.startsWith('Fita')).join(', ')}</td>
                                                             </tr>
                                                         );
                                                     }
@@ -384,7 +406,6 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                             ))}
                         </div>
                     )}
-
                     {options.showCuttingPlan && (
                         <div className="print-section-plan">
                             {activeResult.sheets.map((sheet) => {
@@ -435,7 +456,199 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                             })}
                         </div>
                     )}
-                    
+
+                    {options.showHardwareList && (
+                        <div className="print-section-hardware">
+                            <div className="a4-page-view">
+                                <ReportHeader title="Lista de Ferragens" result={activeResult} order={projectOrder} material={materialName} thickness={thickness} pageNum={1} totalPages={1} />
+                                <div className="mt-4">
+                                    <table className="w-full text-xs border-collapse border border-slate-300">
+                                        <thead className="bg-slate-50 border-b border-slate-300">
+                                            <tr>
+                                                <th className="p-2 border border-slate-300 text-center w-12">Ícone</th>
+                                                <th className="p-2 border border-slate-300">Nome / Descrição</th>
+                                                <th className="p-2 border border-slate-300 text-center w-20">Quantidade</th>
+                                                <th className="p-2 border border-slate-300">Uso Sugerido</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {generateAssemblyJSON(parts, projectName).ferragens.map((hw: any, i: number) => {
+                                                const getIcon = (name: string) => {
+                                                    const reg = hardwareRegistry.find(h => h.name.toLowerCase() === name.toLowerCase());
+                                                    if (reg && reg.imageUrl) return <img src={reg.imageUrl} className="w-5 h-5 mx-auto object-contain" />;
+                                                    if (name.includes('Parafuso')) return <ScrewDrawing className="w-5 h-5 mx-auto text-slate-600"/>;
+                                                    if (name.includes('Cavilha')) return <DowelDrawing className="w-5 h-5 mx-auto text-amber-700"/>;
+                                                    if (name.includes('Dobradiça')) return <HingeDrawing className="w-5 h-5 mx-auto text-slate-600"/>;
+                                                    if (name.includes('Minifix')) return <MinifixDrawing className="w-5 h-5 mx-auto text-slate-600"/>;
+                                                    if (name.includes('Prego')) return <NailDrawing className="w-5 h-5 mx-auto text-slate-800"/>;
+                                                    return <span className="text-[8px] text-slate-400">HW</span>;
+                                                };
+                                                return (
+                                                    <tr key={i} className="hover:bg-slate-50">
+                                                        <td className="p-2 border border-slate-300 text-center">{getIcon(hw.nome)}</td>
+                                                        <td className="p-2 border border-slate-300 font-bold text-slate-700">{hw.nome}</td>
+                                                        <td className="p-2 border border-slate-300 text-center font-black text-slate-900">{hw.quantidade}</td>
+                                                        <td className="p-2 border border-slate-300 text-[10px] text-slate-500">{hw.uso}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="absolute bottom-8 left-0 right-0 text-center text-[10px] text-slate-400 font-medium italic">Lista gerada automaticamente com base nos componentes detectados.</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {options.showAssemblyGuide && (
+                        <div className="print-section-assembly">
+                            {(() => {
+                                // Tenta carregar manuais salvos no localStorage
+                                const savedManuals = localStorage.getItem('cutlist_manuals_v2');
+                                const manualProjects = savedManuals ? JSON.parse(savedManuals) : [];
+                                
+                                // Se não houver nenhum manual salvo, gera um automático como fallback
+                                if (manualProjects.length === 0) {
+                                    const assemblyData = generateAssemblyJSON(parts, projectName);
+                                    return assemblyData.modulos.map((mod: any, mIdx: number) => (
+                                        <div key={mIdx} className="a4-page-view">
+                                            <ReportHeader title="Guia de Montagem (Auto)" result={activeResult} order={projectOrder} material={materialName} thickness={thickness} pageNum={mIdx + 1} totalPages={assemblyData.modulos.length} />
+                                            <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 mb-6">
+                                                <h3 className="font-black text-slate-800 uppercase text-sm mb-1">{mod.nome}</h3>
+                                                <p className="text-[10px] text-slate-500">{mod.resumo}</p>
+                                            </div>
+                                            <div className="space-y-6">
+                                                {mod.passos.slice(0, 5).map((passo: any, pIdx: number) => (
+                                                    <div key={pIdx} className="border-l-4 border-blue-500 pl-4 py-1">
+                                                        <h4 className="font-black text-xs text-blue-800 uppercase">{passo.passo}º Passo: {passo.titulo}</h4>
+                                                        <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">{passo.descricao_tecnica}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="absolute bottom-8 left-0 right-0 text-center text-[10px] text-slate-400 font-medium italic">Gerado automaticamente. Personalize na aba "Montagem".</div>
+                                        </div>
+                                    ));
+                                }
+
+                                // Se houver manuais salvos, imprime todos eles
+                                return manualProjects.map((proj: any, projIdx: number) => (
+                                    <div key={proj.id} className="print-project-manual">
+                                        {/* PÁGINA DE RESUMO DO MANUAL */}
+                                        <div className="a4-page-view">
+                                            <ReportHeader title="Manual de Montagem" result={activeResult} order={projectOrder} material={materialName} thickness={thickness} />
+                                            <div className="mt-8 mb-12">
+                                                <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter border-l-8 border-slate-900 pl-6 py-2">{proj.name}</h2>
+                                                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-2 px-8">Projeto Personalizado - {proj.steps.length} Passos Detalhados</p>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-8">
+                                                <div>
+                                                    <h3 className="text-xs font-black text-slate-500 uppercase mb-3 flex items-center gap-2"><Hammer size={14}/> Componentes principais</h3>
+                                                    <div className="space-y-1">
+                                                        {parts.filter(p => (p.sourceFile || "Geral") === proj.name).slice(0, 15).map(p => (
+                                                            <div key={p.id} className="flex justify-between text-[10px] border-b border-slate-100 pb-1">
+                                                                <span className="font-bold text-slate-700">{p.finalName}</span>
+                                                                <span className="font-black text-slate-400">x{p.quantity}</span>
+                                                            </div>
+                                                        ))}
+                                                        {parts.filter(p => (p.sourceFile || "Geral") === proj.name).length > 15 && <p className="text-[9px] text-slate-300 italic pt-1">... e outros componentes</p>}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-black text-slate-500 uppercase mb-3 flex items-center gap-2"><Box size={14}/> Ferragens Necessárias</h3>
+                                                    <div className="space-y-1">
+                                                        {proj.hardware.map((hw: any, idx: number) => (
+                                                            <div key={idx} className="flex justify-between text-[10px] border-b border-slate-100 pb-1">
+                                                                <span className="font-bold text-slate-700">{hw.nome}</span>
+                                                                <span className="font-black text-blue-600">x{hw.quantidade}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="absolute bottom-12 left-12 right-12 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                                <p className="text-[10px] text-slate-500 leading-relaxed italic text-center">As especificações de hardware e os passos detalhados a seguir foram configurados manualmente para garantir a precisão da montagem.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* PÁGINAS DE PASSOS (Agrupados para economizar papel se possível, ou um por página como no original) */}
+                                        {/* Para manter a qualidade do A4, vamos imprimir os passos com imagens em páginas dedicadas */}
+                                        {proj.steps.map((step: any, sIdx: number) => (
+                                            <div key={step.id} className="a4-page-view">
+                                                <div className="border-b-2 border-slate-100 pb-2 mb-6 flex justify-between items-center">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{proj.name}</span>
+                                                    <span className="text-xs font-black text-blue-600">PASSO {sIdx + 1}</span>
+                                                </div>
+                                                <h3 className="text-xl font-black text-slate-800 uppercase italic mb-2">{step.title}</h3>
+                                                <p className="text-sm text-slate-600 mb-8 border-l-4 border-slate-200 pl-4">{step.description}</p>
+                                                
+                                                <div className="flex-1 border-2 border-slate-50 rounded-3xl bg-slate-50/30 flex items-center justify-center p-4 min-h-[500px]">
+                                                    {step.image ? (
+                                                        <img src={step.image} className="max-w-full max-h-[180mm] object-contain shadow-2xl rounded-lg" alt={step.title} />
+                                                    ) : (
+                                                        <div className="text-slate-300 italic text-sm">Nenhum diagrama fornecido para este passo</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+                    )}
+
+                    {options.showProductionSheet && (
+                        <div className="print-section-production">
+                            <div className="a4-page-view">
+                                <ReportHeader title="Cronograma / Ficha de Produção" result={activeResult} order={projectOrder} material={materialName} thickness={thickness} />
+                                <div className="mt-6 space-y-4">
+                                    {(() => {
+                                        const saved = localStorage.getItem('cutlist_timeline_v1');
+                                        const stages = saved ? JSON.parse(saved) : [
+                                            { name: 'CORTE', color: 'bg-orange-500' },
+                                            { name: 'COLAGEM', color: 'bg-amber-500' },
+                                            { name: 'USINAGEM', color: 'bg-indigo-500' },
+                                            { name: 'MONTAGEM', color: 'bg-cyan-500' },
+                                            { name: 'LIMPEZA', color: 'bg-slate-500' }
+                                        ];
+
+                                        return stages.slice(0, 5).map((stage: any, idx: number) => (
+                                            <div key={idx} className="border-2 border-slate-200 rounded-xl overflow-hidden break-inside-avoid">
+                                                <div className={`${stage.color || 'bg-slate-900'} text-white px-3 py-1.5 text-[10px] font-black uppercase flex justify-between`}>
+                                                    <span>{idx + 1}. {stage.name}</span>
+                                                    <span>Responsável: {stage.responsibleWorker || '________________'}</span>
+                                                </div>
+                                                <div className="p-3 grid grid-cols-4 gap-4 bg-white">
+                                                    <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">T. Execução</p><p className="text-[10px] font-bold">{stage.estimatedTime || '_______'}</p></div>
+                                                    <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Tempo Real</p><p className="text-[10px] font-bold">{stage.realTime || '_______'}</p></div>
+                                                    <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Finalização</p><p className="text-[10px] font-bold">{stage.finishDate || '_______'}</p></div>
+                                                    <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Retrabalho</p><p className="text-[10px] font-bold">{stage.isRework ? `SIM (${stage.reworkTime})` : 'NÃO / _____'}</p></div>
+                                                </div>
+                                                {stage.observations && (
+                                                    <div className="px-3 pb-2 bg-white">
+                                                        <p className="text-[7px] font-black text-slate-300 uppercase italic">Obs: {stage.observations}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                                
+                                <div className="mt-8 grid grid-cols-2 gap-8">
+                                    <div className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                        <h4 className="text-[9px] font-black text-slate-400 uppercase mb-4">Notas de Fábrica</h4>
+                                        <div className="h-24 border-b border-slate-200 border-dashed"></div>
+                                        <div className="h-24 border-b border-slate-200 border-dashed"></div>
+                                    </div>
+                                    <div className="flex flex-col justify-end gap-12 pb-4">
+                                        <div className="text-center border-t border-slate-900 pt-2"><p className="text-[9px] font-black uppercase text-slate-900">Assinatura de Entrega de Turno</p></div>
+                                        <div className="text-center border-t border-slate-900 pt-2"><p className="text-[9px] font-black uppercase text-slate-900">Visto Controle de Qualidade</p></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {options.showLabels && (
                         <div className="print-section-labels">
                             {labelPages.map((pageParts, pIdx) => (
@@ -448,7 +661,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                              const logicalWidth = part.height;
                                              const lengthEdges: [EdgeType, EdgeType] = [e.long1, e.long2];
                                              const widthEdges: [EdgeType, EdgeType] = [e.short1, e.short2];
-                                             const notesStr = part.notes?.filter(n => n && !n.includes("NÃO ALOCADA")).join(', ');
+                                             const notesStr = part.notes?.filter(n => n && !n.includes("NÃO ALOCADA") && !n.startsWith('Fita')).join(', ');
 
                                              return (
                                                 <div key={idx} className="border border-slate-800 rounded-lg p-2 flex flex-col justify-between h-[140px] relative overflow-hidden bg-white shadow-sm">
@@ -480,7 +693,7 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                 </div>
             </div>
 
-            <div className="w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shadow-xl z-20">
+            <div className="w-80 bg-white border-l border-slate-200 p-6 flex flex-col gap-6 shadow-xl z-20 overflow-y-auto custom-scrollbar">
                 <div>
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2"><Printer size={16} /> Configurar Impressão</h3>
                     <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-slate-50">
@@ -494,15 +707,27 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                     <div className="space-y-3">
                         <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none">
                             <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showCutList ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showCutList && <Check size={14} />}</div>
-                            <input type="checkbox" className="hidden" checked={options.showCutList} onChange={() => setOptions({...options, showCutList: !options.showCutList})} /><span className="text-sm font-bold text-slate-700">1. Lista de Peças (Tabela)</span>
+                            <input type="checkbox" className="hidden" checked={options.showCutList} onChange={() => setOptions({...options, showCutList: !options.showCutList})} /><span className="text-sm font-bold text-slate-700">1. Lista de Peças</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none">
                             <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showCuttingPlan ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showCuttingPlan && <Check size={14} />}</div>
-                            <input type="checkbox" className="hidden" checked={options.showCuttingPlan} onChange={() => setOptions({...options, showCuttingPlan: !options.showCuttingPlan})} /><span className="text-sm font-bold text-slate-700">2. Plano de Corte (Desenhos)</span>
+                            <input type="checkbox" className="hidden" checked={options.showCuttingPlan} onChange={() => setOptions({...options, showCuttingPlan: !options.showCuttingPlan})} /><span className="text-sm font-bold text-slate-700">2. Plano de Corte</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showHardwareList ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showHardwareList && <Check size={14} />}</div>
+                            <input type="checkbox" className="hidden" checked={options.showHardwareList} onChange={() => setOptions({...options, showHardwareList: !options.showHardwareList})} /><span className="text-sm font-bold text-slate-700">3. Lista de Ferragens</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showAssemblyGuide ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showAssemblyGuide && <Check size={14} />}</div>
+                            <input type="checkbox" className="hidden" checked={options.showAssemblyGuide} onChange={() => setOptions({...options, showAssemblyGuide: !options.showAssemblyGuide})} /><span className="text-sm font-bold text-slate-700">4. Guia de Montagem</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showProductionSheet ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showProductionSheet && <Check size={14} />}</div>
+                            <input type="checkbox" className="hidden" checked={options.showProductionSheet} onChange={() => setOptions({...options, showProductionSheet: !options.showProductionSheet})} /><span className="text-sm font-bold text-slate-700">5. Cronograma (Ficha Prod.)</span>
                         </label>
                         <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors select-none" onClick={toggleLabels}>
                             <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${options.showLabels ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`}>{options.showLabels && <Check size={14} />}</div>
-                            <span className="text-sm font-bold text-slate-700">3. Etiquetas Adesivas</span>
+                            <span className="text-sm font-bold text-slate-700">6. Etiquetas Adesivas</span>
                         </label>
                     </div>
                 </div>

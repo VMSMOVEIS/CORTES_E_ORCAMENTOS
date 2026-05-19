@@ -17,6 +17,115 @@ import { MaterialManager } from './MaterialManager';
 import { EdgeBandManager } from './EdgeBandManager';
 import { HardwareManager } from './HardwareManager';
 
+const CollaboratorForm = ({ 
+    item, 
+    isEditing, 
+    onSave, 
+    collaboratorsCount 
+}: { 
+    item: any, 
+    isEditing: boolean, 
+    onSave: (newItem: RegisteredCollaborator) => void,
+    collaboratorsCount: number
+}) => {
+    const [monthRate, setMonthRate] = useState(item?.monthRate || 0);
+    const [productionHours, setProductionHours] = useState(item?.productionHours || 220);
+    
+    const hourRateValue = productionHours > 0 ? monthRate / productionHours : 0;
+
+    return (
+        <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const newItem: RegisteredCollaborator = {
+                id: item?.id || Date.now().toString(),
+                code: formData.get('code') as string,
+                name: formData.get('name') as string,
+                role: formData.get('role') as string,
+                sector: formData.get('sector') as string,
+                type: formData.get('type') as string,
+                monthRate: Number(monthRate),
+                productionHours: Number(productionHours),
+                hourRate: hourRateValue,
+                status: formData.get('status') as 'Ativo' | 'Inativo'
+            };
+            onSave(newItem);
+        }} className="space-y-4 font-sans">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Código</label>
+                    <input name="code" defaultValue={item?.code || `COL-00${collaboratorsCount + 1}`} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Nome</label>
+                    <input name="name" defaultValue={item?.name} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Função</label>
+                    <input name="role" defaultValue={item?.role} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Setor</label>
+                    <select name="sector" defaultValue={item?.sector || 'Montagem'} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold">
+                        <option value="Corte">Corte</option>
+                        <option value="Bordeamento">Bordeamento</option>
+                        <option value="Montagem">Montagem</option>
+                        <option value="Acabamento">Acabamento</option>
+                        <option value="Administrativo">Administrativo</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400 font-black flex justify-between">
+                        Valor Mês (R$)
+                    </label>
+                    <input 
+                        name="monthRate" 
+                        type="number" 
+                        step="0.01" 
+                        value={monthRate} 
+                        onChange={(e) => setMonthRate(Number(e.target.value))}
+                        className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" 
+                        required 
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Horas Produção / Mês</label>
+                    <input 
+                        name="productionHours" 
+                        type="number" 
+                        value={productionHours} 
+                        onChange={(e) => setProductionHours(Number(e.target.value))}
+                        className="w-full p-2 bg-slate-50 border border-blue-100 rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none" 
+                        required 
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-blue-600">Valor Hora (Calculado)</label>
+                    <div className="w-full p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs font-black text-blue-700">
+                        R$ {hourRateValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <input type="hidden" name="hourRate" value={hourRateValue} />
+                </div>
+                <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Tipo</label>
+                    <input name="type" defaultValue={item?.type || 'Hora Produtiva'} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" />
+                </div>
+                <div className="col-span-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Status</label>
+                    <select name="status" defaultValue={item?.status || 'Ativo'} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Inativo">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-blue-100 mt-4 hover:bg-blue-700 transition-all active:scale-[0.98]">
+                {isEditing ? 'Atualizar Colaborador' : 'Cadastrar Colaborador'}
+            </button>
+        </form>
+    );
+};
+
 interface RegistrationsViewProps {
     materials: RegisteredMaterial[];
     edgeRegistry: RegisteredEdgeBand[];
@@ -84,80 +193,20 @@ export const RegistrationsView: React.FC<RegistrationsViewProps> = ({
 
         switch(subTab) {
             case 'colaboradores': {
-                const item = editingItem as RegisteredCollaborator || { 
-                    id: '', code: `COL-00${collaborators.length + 1}`, name: '', role: '', 
-                    sector: 'Montagem', type: 'Hora Produtiva', monthRate: 0, hourRate: 0, status: 'Ativo' 
-                };
                 return (
-                    <form onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        const newItem: RegisteredCollaborator = {
-                            id: item.id || Date.now().toString(),
-                            code: formData.get('code') as string,
-                            name: formData.get('name') as string,
-                            role: formData.get('role') as string,
-                            sector: formData.get('sector') as string,
-                            type: formData.get('type') as string,
-                            monthRate: Number(formData.get('monthRate')),
-                            hourRate: Number(formData.get('hourRate')),
-                            status: formData.get('status') as 'Ativo' | 'Inativo'
-                        };
-                        if (isEditing) {
-                            onUpdateCollaborators(collaborators.map(c => c.id === newItem.id ? newItem : c));
-                        } else {
-                            onUpdateCollaborators([...collaborators, newItem]);
-                        }
-                        setShowModal(false);
-                    }} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Código</label>
-                                <input name="code" defaultValue={item.code} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Nome</label>
-                                <input name="name" defaultValue={item.name} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Função</label>
-                                <input name="role" defaultValue={item.role} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Setor</label>
-                                <select name="sector" defaultValue={item.sector} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold">
-                                    <option value="Corte">Corte</option>
-                                    <option value="Bordeamento">Bordeamento</option>
-                                    <option value="Montagem">Montagem</option>
-                                    <option value="Acabamento">Acabamento</option>
-                                    <option value="Administrativo">Administrativo</option>
-                                    <option value="Outro">Outro</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Valor Mês (R$)</label>
-                                <input name="monthRate" type="number" step="0.01" defaultValue={item.monthRate} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Valor Hora (R$)</label>
-                                <input name="hourRate" type="number" step="0.01" defaultValue={item.hourRate} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" required />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Tipo</label>
-                                <input name="type" defaultValue={item.type || 'Hora Produtiva'} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400">Status</label>
-                                <select name="status" defaultValue={item.status} className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-bold">
-                                    <option value="Ativo">Ativo</option>
-                                    <option value="Inativo">Inativo</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-blue-100">
-                            {isEditing ? 'Atualizar' : 'Cadastrar'}
-                        </button>
-                    </form>
+                    <CollaboratorForm 
+                        item={editingItem}
+                        isEditing={isEditing}
+                        collaboratorsCount={collaborators.length}
+                        onSave={(newItem) => {
+                            if (isEditing) {
+                                onUpdateCollaborators(collaborators.map(c => c.id === newItem.id ? newItem : c));
+                            } else {
+                                onUpdateCollaborators([...collaborators, newItem]);
+                            }
+                            setShowModal(false);
+                        }}
+                    />
                 );
             }
             case 'custos': {
@@ -476,6 +525,7 @@ export const RegistrationsView: React.FC<RegistrationsViewProps> = ({
                                         <th className="px-6 py-4">Função</th>
                                         <th className="px-6 py-4">Setor</th>
                                         <th className="px-6 py-4 text-right">Custo Mês</th>
+                                        <th className="px-6 py-4 text-right">Custo Hora</th>
                                         <th className="px-6 py-4 text-center">Status</th>
                                         <th className="px-6 py-4 text-center">Ações</th>
                                     </tr>
@@ -488,6 +538,12 @@ export const RegistrationsView: React.FC<RegistrationsViewProps> = ({
                                             <td className="px-6 py-4 italic font-bold text-slate-500 uppercase">{col.role}</td>
                                             <td className="px-6 py-4 font-bold text-blue-600">{col.sector}</td>
                                             <td className="px-6 py-4 text-right font-mono font-black">R$ {col.monthRate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-blue-600 font-bold font-mono">R$ {col.hourRate.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-black">{col.productionHours}h</span>
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${col.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {col.status}
