@@ -263,7 +263,7 @@ export const SheetSVG: React.FC<{ sheet: OptimizedSheet; viewBox: string; colorM
                             x={p.x + p.width - 15} 
                             y={p.y + p.height - 15} 
                             textAnchor="end" 
-                            fontSize="24" 
+                            fontSize={Math.max(22, Math.min(48, Math.round(p.width / 6)))} 
                             fontWeight="900" 
                             fill="#000"
                             style={{paintOrder:'stroke', stroke:'white', strokeWidth:'6px'}}
@@ -274,13 +274,13 @@ export const SheetSVG: React.FC<{ sheet: OptimizedSheet; viewBox: string; colorM
                         {/* Dimensões Internas com Fita Personalizada */}
                         {/* Horizontal Dimension Text (Width on screen) */}
                         <g transform={`translate(${p.x + p.width/2}, ${p.y + Math.min(60, p.height/2)})`}>
-                            <text textAnchor="middle" fontSize="22" fontWeight="800" fill="#000" style={{paintOrder:'stroke', stroke:'white', strokeWidth:'4px'}}>{Math.round(p.width)}</text>
+                            <text textAnchor="middle" fontSize={Math.max(20, Math.min(48, Math.round(p.width / 6)))} fontWeight="800" fill="#000" style={{paintOrder:'stroke', stroke:'white', strokeWidth:'6px'}}>{Math.round(p.width)}</text>
                             <EdgeMarkersSVG edges={visualWidthEdges} yOffset={12} />
                         </g>
 
                         {/* Vertical Dimension Text (Height on screen) */}
                         <g transform={`translate(${p.x + Math.min(60, p.width/2)}, ${p.y + p.height/2}) rotate(-90)`}>
-                            <text textAnchor="middle" fontSize="22" fontWeight="800" fill="#000" style={{paintOrder:'stroke', stroke:'white', strokeWidth:'4px'}}>{Math.round(p.height)}</text>
+                            <text textAnchor="middle" fontSize={Math.max(20, Math.min(48, Math.round(p.height / 6)))} fontWeight="800" fill="#000" style={{paintOrder:'stroke', stroke:'white', strokeWidth:'6px'}}>{Math.round(p.height)}</text>
                             <EdgeMarkersSVG edges={visualHeightEdges} yOffset={12} />
                         </g>
 

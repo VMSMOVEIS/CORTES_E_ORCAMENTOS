@@ -612,6 +612,38 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                             { name: 'LIMPEZA', color: 'bg-slate-500' }
                                         ];
 
+                                        // Calcular tempo de corte idêntico ao do orçamento
+                                        const materialsSaved = localStorage.getItem('cutlist_materials_pro_v4');
+                                        const materials = materialsSaved ? JSON.parse(materialsSaved) : [];
+
+                                        const configSaved = localStorage.getItem('cutlist_config_pro_v4');
+                                        const globalConfig = configSaved ? JSON.parse(configSaved) : { minutesPerSqMeter: 10 };
+
+                                        const groupedParts: Record<string, ProcessedPart[]> = {};
+                                        parts.forEach(p => {
+                                            const key = `${p.materialName}|${p.dimensions.thickness}`;
+                                            if (!groupedParts[key]) groupedParts[key] = [];
+                                            groupedParts[key].push(p);
+                                        });
+
+                                        let calculatedCorteTime = 0;
+                                        Object.entries(groupedParts).forEach(([key, groupParts]) => {
+                                            const [matName, thicknessStr] = key.split('|');
+                                            const thickness = Number(thicknessStr);
+                                            const material = Array.isArray(materials) 
+                                                ? materials.find((m: any) => m.name === matName && m.thickness === thickness) 
+                                                : null;
+
+                                            const totalAreaM2 = groupParts.reduce((acc, p) => {
+                                                return acc + (p.dimensions.width * p.dimensions.height * p.quantity) / 1000000;
+                                            }, 0);
+
+                                            const prodTimePerM2 = material?.productionTime || globalConfig.minutesPerSqMeter || 0;
+                                            calculatedCorteTime += totalAreaM2 * prodTimePerM2;
+                                        });
+
+                                        const cuttingTimeMinutes = Math.round(calculatedCorteTime);
+
                                         return stages.slice(0, 5).map((stage: any, idx: number) => (
                                             <div key={idx} className="border-2 border-slate-200 rounded-xl overflow-hidden break-inside-avoid">
                                                 <div className={`${stage.color || 'bg-slate-900'} text-white px-3 py-1.5 text-[10px] font-black uppercase flex justify-between`}>
@@ -619,7 +651,14 @@ export const PrintPreview: React.FC<PrintPreviewProps> = ({ result, parts, proje
                                                     <span>Responsável: {stage.responsibleWorker || '________________'}</span>
                                                 </div>
                                                 <div className="p-3 grid grid-cols-4 gap-4 bg-white">
-                                                    <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">T. Execução</p><p className="text-[10px] font-bold">{stage.estimatedTime || '_______'}</p></div>
+                                                    <div className="border-b border-slate-100">
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">T. Execução</p>
+                                                        <p className="text-[10px] font-bold">
+                                                            {stage.name?.toUpperCase() === 'CORTE' 
+                                                                ? `${cuttingTimeMinutes} min` 
+                                                                : (stage.estimatedTime || '_______')}
+                                                        </p>
+                                                    </div>
                                                     <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Tempo Real</p><p className="text-[10px] font-bold">{stage.realTime || '_______'}</p></div>
                                                     <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Finalização</p><p className="text-[10px] font-bold">{stage.finishDate || '_______'}</p></div>
                                                     <div className="border-b border-slate-100"><p className="text-[7px] font-black text-slate-400 uppercase">Retrabalho</p><p className="text-[10px] font-bold">{stage.isRework ? `SIM (${stage.reworkTime})` : 'NÃO / _____'}</p></div>
